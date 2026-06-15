@@ -1,0 +1,98 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 215 20% 93%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 214 32% 91%;
+    --muted-foreground: 215 16% 47%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 87%;
+    --ring: 221 83% 53%;
+    --radius: 0.5rem;
+    --sidebar-bg: 0 0% 100%;
+    --sidebar-border: 214 32% 87%;
+  }
+
+  .dark {
+    --background: 222 47% 8%;
+    --foreground: 210 40% 95%;
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 95%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 8%;
+    --secondary: 217 32% 17%;
+    --secondary-foreground: 210 40% 95%;
+    --muted: 217 32% 15%;
+    --muted-foreground: 215 20% 55%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 95%;
+    --border: 217 32% 18%;
+    --ring: 217 91% 60%;
+    --sidebar-bg: 222 47% 10%;
+    --sidebar-border: 217 32% 18%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* Scrollbar minimalista */
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground;
+  }
+}
+
+/* ── Visor DXF ──────────────────────────────────────────────────────────── */
+
+.dxf-viewer {
+  cursor: grab;
+  user-select: none;
+}
+.dxf-viewer:active {
+  cursor: grabbing;
+}
+
+/* Entidades DXF: efecto hover */
+.dxf-entity {
+  transition: opacity 0.15s ease, filter 0.15s ease;
+  cursor: pointer;
+}
+.dxf-entity:hover {
+  opacity: 0.75;
+  filter: brightness(0.9);
+}
+.dxf-entity.selected {
+  filter: brightness(0.85) saturate(1.5);
+  stroke-width: 1.5 !important;
+}
+
+/* En modo oscuro, invertir colores de relleno del SVG para que se vea bien */
+.dark .dxf-viewer svg text {
+  fill: #e2e8f0;
+}

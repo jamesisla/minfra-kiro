@@ -1,0 +1,55 @@
+# ── Python ────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+
+# ── Node / pnpm ───────────────────────────────────────────────────────────
+node_modules/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+
+# ── Entorno / secretos ────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+apps/api/.env
+apps/web/.env.local
+
+# ── Archivos temporales de diagnóstico (generados durante dev) ────────────
+*.txt
+!README.md
+!apps/api/alembic/versions/.gitkeep
+!**/README.md
+!docs/**/*.txt
+
+# ── OS ────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── IDEs ──────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── Docker volumes ────────────────────────────────────────────────────────
+postgres_data/
+redis_data/
+
+# ── Uploads / archivos DXF procesados ────────────────────────────────────
+uploads/
+*.dxf
+next.config.ts.bak
