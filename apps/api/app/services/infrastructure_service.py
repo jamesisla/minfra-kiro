@@ -183,6 +183,8 @@ class InfrastructureService:
         # Crear los PlanoItems
         items_created = 0
         for entity in result.entities:
+            meta = dict(entity.metadata) if entity.metadata else {}
+            meta["svg_element"] = entity.svg_element
             item = PlanoItem(
                 piso_id=piso_id,
                 tipo=entity.tipo,
@@ -192,7 +194,7 @@ class InfrastructureService:
                 y=entity.y,
                 ancho=entity.ancho,
                 alto=entity.alto,
-                metadata_extra=json.dumps(entity.metadata) if entity.metadata else None,
+                metadata_extra=json.dumps(meta),
             )
             self.db.add(item)
             items_created += 1

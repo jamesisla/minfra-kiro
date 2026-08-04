@@ -21,7 +21,7 @@ const MAX_SCALE = 20;
 const ZOOM_STEP = 0.15;
 
 export function DxfViewer() {
-  const { activePiso, pisoLoading, selectedItem, setSelectedItem, clearSelectedItem } =
+  const { activePiso, pisoLoading, pisoError, selectedItem, setSelectedItem, clearSelectedItem } =
     useInfrastructureStore();
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -184,8 +184,18 @@ export function DxfViewer() {
         metadata_extra: null,
       };
 
-      // Buscar el item real en la lista si existe
-      const realItem = activePiso?.items.find((i) => i.tipo === entityType && i.capa === layerName);
+      // Buscar el item real por svg_element exacto en metadata_extra o por id
+      const realItem = activePiso?.items.find((i) => {
+        if (elemId && i.id === elemId) return true;
+        if (!i.metadata_extra || !elemId) return false;
+        try {
+          const meta = JSON.parse(i.metadata_extra);
+          return meta.svg_element === elemId;
+        } catch {
+          return false;
+        }
+      });
+
       if (realItem) {
         setSelectedItem(
           { ...realItem, nombre: (realItem.nombre ?? textContent) || null },
@@ -251,6 +261,17 @@ export function DxfViewer() {
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           <p className="text-sm">Cargando plano…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (pisoError) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-background">
+        <div className="text-center text-destructive max-w-xs p-4 border border-destructive/20 rounded-xl bg-destructive/5">
+          <p className="text-sm font-semibold">Error al cargar el piso</p>
+          <p className="text-xs mt-1 opacity-80">{pisoError}</p>
         </div>
       </div>
     );

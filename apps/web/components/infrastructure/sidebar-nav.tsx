@@ -28,22 +28,25 @@ export function SidebarNav() {
 
   const [uploading, setUploading] = useState(false);
   const [uploadTargetPisoId, setUploadTargetPisoId] = useState<string | null>(null);
+  const [uploadNotice, setUploadNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleUploadDxf = (pisoId: string) => {
     setUploadTargetPisoId(pisoId);
+    setUploadNotice(null);
     fileInputRef.current?.click();
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !uploadTargetPisoId || !authToken) return;
-    if (!file.name.endsWith(".dxf")) {
-      alert("Solo se aceptan archivos .dxf");
+    if (!file.name.toLowerCase().endsWith(".dxf")) {
+      setUploadNotice({ type: "error", text: "Solo se aceptan archivos de plano .dxf" });
       return;
     }
 
     setUploading(true);
+    setUploadNotice(null);
     const form = new FormData();
     form.append("file", file);
 
@@ -57,11 +60,11 @@ export function SidebarNav() {
         }
       );
       if (!res.ok) {
-        const err = await res.json();
-        alert(`Error: ${err.detail}`);
+        const err = await res.json().catch(() => ({ detail: "Error al procesar el archivo DXF" }));
+        setUploadNotice({ type: "error", text: err.detail ?? "Error al procesar DXF" });
       } else {
         const data = await res.json();
-        alert(`✓ ${data.mensaje}`);
+        setUploadNotice({ type: "success", text: data.mensaje || "Plano DXF cargado con éxito" });
         // Recargar el árbol y el piso activo
         await refreshTree();
         if (uploadTargetPisoId) {
@@ -69,7 +72,7 @@ export function SidebarNav() {
         }
       }
     } catch {
-      alert("Error al subir el archivo");
+      setUploadNotice({ type: "error", text: "Error de red al subir el archivo DXF" });
     } finally {
       setUploading(false);
       setUploadTargetPisoId(null);
@@ -118,9 +121,28 @@ export function SidebarNav() {
       />
 
       {uploading && (
-        <div className="px-2 py-1.5 text-xs text-primary flex items-center gap-1.5">
+        <div className="px-2 py-1.5 text-xs text-primary flex items-center gap-1.5 bg-primary/10 rounded my-1 mx-2">
           <UploadCloud className="w-3.5 h-3.5 animate-bounce" />
           Procesando DXF…
+        </div>
+      )}
+
+      {uploadNotice && (
+        <div
+          className={cn(
+            "mx-2 my-1 px-2 py-1.5 rounded text-xs flex items-center justify-between gap-1",
+            uploadNotice.type === "success"
+              ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 dark:text-emerald-400"
+              : "bg-destructive/10 text-destructive border border-destructive/20"
+          )}
+        >
+          <span>{uploadNotice.text}</span>
+          <button
+            onClick={() => setUploadNotice(null)}
+            className="opacity-70 hover:opacity-100 font-bold ml-1"
+          >
+            ×
+          </button>
         </div>
       )}
 

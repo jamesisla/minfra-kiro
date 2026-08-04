@@ -2,6 +2,7 @@
 Modelos de infraestructura universitaria.
 Sede → Edificio → Piso → PlanoItem (entidades parseadas del DXF).
 """
+import uuid
 from sqlalchemy import Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -30,7 +31,7 @@ class Edificio(Base, TimestampMixin):
     nombre: Mapped[str] = mapped_column(String(255), nullable=False)
     codigo: Mapped[str | None] = mapped_column(String(50), nullable=True)
     descripcion: Mapped[str | None] = mapped_column(Text, nullable=True)
-    sede_id: Mapped[int] = mapped_column(ForeignKey("sedes.id"), nullable=False)
+    sede_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sedes.id"), nullable=False)
 
     sede: Mapped["Sede"] = relationship("Sede", back_populates="edificios")
     pisos: Mapped[list["Piso"]] = relationship(
@@ -46,7 +47,7 @@ class Piso(Base, TimestampMixin):
 
     numero: Mapped[int] = mapped_column(Integer, nullable=False)
     nombre: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    edificio_id: Mapped[int] = mapped_column(ForeignKey("edificios.id"), nullable=False)
+    edificio_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("edificios.id"), nullable=False)
     # Nombre original del archivo DXF
     archivo_dxf: Mapped[str | None] = mapped_column(String(500), nullable=True)
     # Datos SVG generados del DXF (almacenado como texto)
@@ -69,7 +70,7 @@ class Piso(Base, TimestampMixin):
 class PlanoItem(Base, TimestampMixin):
     __tablename__ = "plano_items"
 
-    piso_id: Mapped[int] = mapped_column(ForeignKey("pisos.id"), nullable=False)
+    piso_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("pisos.id"), nullable=False)
     # Tipo de entidad DXF (ROOM, OFFICE, TEXT, etc.)
     tipo: Mapped[str] = mapped_column(String(100), nullable=False)
     # Nombre / etiqueta (texto DXF o nombre de capa)

@@ -3,6 +3,7 @@
  * Maneja la navegación sede → edificio → piso y el visor de planos.
  */
 import { create } from "zustand";
+import { apiClient } from "@/lib/api/client";
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 
@@ -76,6 +77,7 @@ interface InfrastructureState {
   // Piso activo con detalle + SVG
   activePiso: PisoDetail | null;
   pisoLoading: boolean;
+  pisoError: string | null;
 
   // Item seleccionado en el visor
   selectedItem: PlanoItem | null;
@@ -97,8 +99,6 @@ interface InfrastructureState {
   refreshTree: () => Promise<void>;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-
 export const useInfrastructureStore = create<InfrastructureState>((set, get) => ({
   tree: null,
   treeLoading: false,
@@ -110,6 +110,7 @@ export const useInfrastructureStore = create<InfrastructureState>((set, get) => 
   expandedEdificios: new Set(),
   activePiso: null,
   pisoLoading: false,
+  pisoError: null,
   selectedItem: null,
   selectedItemPosition: null,
   authToken: null,
@@ -119,11 +120,7 @@ export const useInfrastructureStore = create<InfrastructureState>((set, get) => 
   fetchTree: async (token: string) => {
     set({ treeLoading: true, treeError: null });
     try {
-      const res = await fetch(`${API_URL}/api/v1/infrastructure/tree`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error("Error cargando árbol");
-      const data: InfrastructureTree = await res.json();
+      const data = await apiClient.get<InfrastructureTree>("/api/v1/infrastructure/tree", { token });
       set({ tree: data, treeLoading: false });
 
       // Auto-expandir la primera sede si hay sólo una
@@ -132,7 +129,7 @@ export const useInfrastructureStore = create<InfrastructureState>((set, get) => 
       }
     } catch (err) {
       set({
-        treeError: err instanceof Error ? err.message : "Error desconocido",
+        treeError: err instanceof Error ? err.message : "Error cargando estructura",
         treeLoading: false,
       });
     }
@@ -144,24 +141,23 @@ export const useInfrastructureStore = create<InfrastructureState>((set, get) => 
   },
 
   selectSede: (id) => {
-    set({ selectedSedeId: id, selectedEdificioId: null, selectedPisoId: null, activePiso: null });
+    set({ selectedSedeId: id, selectedEdificioId: null, selectedPisoId: null, activePiso: null, pisoError: null });
   },
 
   selectEdificio: (id) => {
-    set({ selectedEdificioId: id, selectedPisoId: null, activePiso: null });
+    set({ selectedEdificioId: id, selectedPisoId: null, activePiso: null, pisoError: null });
   },
 
   selectPiso: async (id: string, token: string) => {
-    set({ selectedPisoId: id, pisoLoading: true, activePiso: null, selectedItem: null });
+    set({ selectedPisoId: id, pisoLoading: true, pisoError: null, activePiso: null, selectedItem: null });
     try {
-      const res = await fetch(`${API_URL}/api/v1/infrastructure/pisos/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error("Error cargando piso");
-      const data: PisoDetail = await res.json();
+      const data = await apiClient.get<PisoDetail>(`/api/v1/infrastructure/pisos/${id}`, { token });
       set({ activePiso: data, pisoLoading: false });
-    } catch {
-      set({ pisoLoading: false });
+    } catch (err) {
+      set({
+        pisoLoading: false,
+        pisoError: err instanceof Error ? err.message : "Error cargando detalle del piso",
+      });
     }
   },
 

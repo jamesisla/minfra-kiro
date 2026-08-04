@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { X, Plus } from "lucide-react";
 import { useInfrastructureStore } from "@/lib/stores/infrastructure-store";
+import { apiClient } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -51,36 +52,29 @@ export function ManagePanel() {
       let body: Record<string, unknown> = {};
 
       if (creating === "sede") {
-        url = `${API_URL}/api/v1/infrastructure/sedes`;
+        url = "/api/v1/infrastructure/sedes";
         body = { nombre, descripcion: descripcion || null, direccion: direccion || null };
       } else if (creating === "edificio") {
         if (!selectedSedeId) { setError("Selecciona una sede"); setLoading(false); return; }
-        url = `${API_URL}/api/v1/infrastructure/edificios`;
+        url = "/api/v1/infrastructure/edificios";
         body = { nombre, codigo: codigo || null, descripcion: descripcion || null, sede_id: selectedSedeId };
       } else if (creating === "piso") {
         if (!selectedEdificioId) { setError("Selecciona un edificio"); setLoading(false); return; }
-        url = `${API_URL}/api/v1/infrastructure/pisos`;
-        body = { numero: parseInt(pisoNumero, 10), nombre: nombre || null, edificio_id: selectedEdificioId };
+        const parsedNumero = parseInt(pisoNumero, 10);
+        if (isNaN(parsedNumero)) {
+          setError("El número de piso debe ser un valor entero válido (ej: -1, 0, 1, 2)");
+          setLoading(false);
+          return;
+        }
+        url = "/api/v1/infrastructure/pisos";
+        body = { numero: parsedNumero, nombre: nombre || null, edificio_id: selectedEdificioId };
       }
 
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail ?? "Error al crear");
-      }
-
+      await apiClient.post(url, body, { token: authToken });
       await refreshTree();
       reset();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
+      setError(err instanceof Error ? err.message : "Error al crear");
     } finally {
       setLoading(false);
     }
