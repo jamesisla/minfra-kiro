@@ -16,7 +16,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { useInfrastructureStore } from "@/lib/stores/infrastructure-store";
-import { apiClient, getApiUrl } from "@/lib/api/client";
+import { apiClient, getApiUrl, ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
 type EditTarget = {
