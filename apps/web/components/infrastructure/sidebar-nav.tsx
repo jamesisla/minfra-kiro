@@ -128,7 +128,8 @@ export function SidebarNav() {
       setDeletingItem(null);
     } catch (err) {
       console.error("Error al eliminar elemento:", err);
-      setUploadNotice({ type: "error", text: "Error al eliminar el elemento" });
+      const msg = err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Error al eliminar el elemento";
+      setUploadNotice({ type: "error", text: msg });
     } finally {
       setActionLoading(false);
     }

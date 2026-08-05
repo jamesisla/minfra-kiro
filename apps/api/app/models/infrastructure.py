@@ -18,7 +18,7 @@ class Sede(Base, TimestampMixin):
     direccion: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     edificios: Mapped[list["Edificio"]] = relationship(
-        "Edificio", back_populates="sede", lazy="selectin"
+        "Edificio", back_populates="sede", lazy="selectin", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:
@@ -31,11 +31,13 @@ class Edificio(Base, TimestampMixin):
     nombre: Mapped[str] = mapped_column(String(255), nullable=False)
     codigo: Mapped[str | None] = mapped_column(String(50), nullable=True)
     descripcion: Mapped[str | None] = mapped_column(Text, nullable=True)
-    sede_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sedes.id"), nullable=False)
+    sede_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("sedes.id", ondelete="CASCADE"), nullable=False
+    )
 
     sede: Mapped["Sede"] = relationship("Sede", back_populates="edificios")
     pisos: Mapped[list["Piso"]] = relationship(
-        "Piso", back_populates="edificio", lazy="selectin"
+        "Piso", back_populates="edificio", lazy="selectin", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:
@@ -47,7 +49,9 @@ class Piso(Base, TimestampMixin):
 
     numero: Mapped[int] = mapped_column(Integer, nullable=False)
     nombre: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    edificio_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("edificios.id"), nullable=False)
+    edificio_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("edificios.id", ondelete="CASCADE"), nullable=False
+    )
     # Nombre original del archivo DXF
     archivo_dxf: Mapped[str | None] = mapped_column(String(500), nullable=True)
     # Datos SVG generados del DXF (almacenado como texto)
@@ -60,7 +64,7 @@ class Piso(Base, TimestampMixin):
 
     edificio: Mapped["Edificio"] = relationship("Edificio", back_populates="pisos")
     items: Mapped[list["PlanoItem"]] = relationship(
-        "PlanoItem", back_populates="piso", lazy="selectin"
+        "PlanoItem", back_populates="piso", lazy="selectin", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:
@@ -70,7 +74,9 @@ class Piso(Base, TimestampMixin):
 class PlanoItem(Base, TimestampMixin):
     __tablename__ = "plano_items"
 
-    piso_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("pisos.id"), nullable=False)
+    piso_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("pisos.id", ondelete="CASCADE"), nullable=False
+    )
     # Tipo de entidad DXF (ROOM, OFFICE, TEXT, etc.)
     tipo: Mapped[str] = mapped_column(String(100), nullable=False)
     # Nombre / etiqueta (texto DXF o nombre de capa)
