@@ -6,7 +6,7 @@ import json
 import uuid
 
 from fastapi import HTTPException, status
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.infrastructure import Edificio, Piso, PlanoItem, Sede
@@ -115,10 +115,22 @@ class InfrastructureService:
         sede = await self.sede_repo.get(sede_id)
         if not sede:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sede no encontrada")
-        edificios = await self.edificio_repo.list_by_sede(sede_id)
-        for edificio in edificios:
-            await self.delete_edificio(edificio.id)
-        await self.sede_repo.delete(sede)
+
+        stmt_edificios = select(Edificio.id).where(Edificio.sede_id == sede_id)
+        edificio_ids = list((await self.db.scalars(stmt_edificios)).all())
+
+        if edificio_ids:
+            stmt_pisos = select(Piso.id).where(Piso.edificio_id.in_(edificio_ids))
+            piso_ids = list((await self.db.scalars(stmt_pisos)).all())
+
+            if piso_ids:
+                await self.db.execute(delete(PlanoItem).where(PlanoItem.piso_id.in_(piso_ids)))
+                await self.db.execute(delete(Piso).where(Piso.id.in_(piso_ids)))
+
+            await self.db.execute(delete(Edificio).where(Edificio.id.in_(edificio_ids)))
+
+        await self.db.execute(delete(Sede).where(Sede.id == sede_id))
+        await self.db.commit()
 
     # ── Edificios ─────────────────────────────────────────────────────────
 
@@ -152,10 +164,16 @@ class InfrastructureService:
         edificio = await self.edificio_repo.get(edificio_id)
         if not edificio:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Edificio no encontrado")
-        pisos = await self.piso_repo.list_by_edificio(edificio_id)
-        for piso in pisos:
-            await self.delete_piso(piso.id)
-        await self.edificio_repo.delete(edificio)
+
+        stmt_pisos = select(Piso.id).where(Piso.edificio_id == edificio_id)
+        piso_ids = list((await self.db.scalars(stmt_pisos)).all())
+
+        if piso_ids:
+            await self.db.execute(delete(PlanoItem).where(PlanoItem.piso_id.in_(piso_ids)))
+            await self.db.execute(delete(Piso).where(Piso.id.in_(piso_ids)))
+
+        await self.db.execute(delete(Edificio).where(Edificio.id == edificio_id))
+        await self.db.commit()
 
     # ── Pisos ─────────────────────────────────────────────────────────────
 
@@ -189,8 +207,10 @@ class InfrastructureService:
         piso = await self.piso_repo.get(piso_id)
         if not piso:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Piso no encontrado")
+
         await self.db.execute(delete(PlanoItem).where(PlanoItem.piso_id == piso_id))
-        await self.piso_repo.delete(piso)
+        await self.db.execute(delete(Piso).where(Piso.id == piso_id))
+        await self.db.commit()
 
 
     async def get_piso_with_svg(self, piso_id: uuid.UUID) -> PisoReadWithSVG:

@@ -51,7 +51,15 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new ApiError(response.status, body.detail ?? "Error en la solicitud");
+    let detail = "Error en la solicitud";
+    if (typeof body.detail === "string") {
+      detail = body.detail;
+    } else if (Array.isArray(body.detail) && body.detail.length > 0) {
+      detail = body.detail.map((e: any) => e.msg || JSON.stringify(e)).join(", ");
+    } else if (body.detail) {
+      detail = JSON.stringify(body.detail);
+    }
+    throw new ApiError(response.status, detail);
   }
 
   if (response.status === 204) {
