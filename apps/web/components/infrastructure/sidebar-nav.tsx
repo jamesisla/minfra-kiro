@@ -336,7 +336,7 @@ export function SidebarNav() {
                   <span className="truncate">{sede.nombre}</span>
                 </button>
 
-                <div className="opacity-0 group-hover/sede:opacity-100 flex items-center gap-0.5 transition-opacity shrink-0">
+                <div className="flex items-center gap-0.5 shrink-0">
                   <button
                     onClick={() => startEdit({ type: "sede", id: sede.id, nombre: sede.nombre })}
                     className="p-1 text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 rounded"
@@ -430,7 +430,7 @@ export function SidebarNav() {
                             )}
                           </button>
 
-                          <div className="opacity-0 group-hover/edificio:opacity-100 flex items-center gap-0.5 transition-opacity shrink-0">
+                          <div className="flex items-center gap-0.5 shrink-0">
                             <button
                               onClick={() =>
                                 startEdit({
@@ -540,7 +540,7 @@ export function SidebarNav() {
                                         <UploadCloud className="w-3.5 h-3.5" />
                                       </button>
 
-                                      <div className="opacity-0 group-hover/piso:opacity-100 flex items-center gap-0.5 transition-opacity">
+                                      <div className="flex items-center gap-0.5">
                                         <button
                                           onClick={() =>
                                             startEdit({
