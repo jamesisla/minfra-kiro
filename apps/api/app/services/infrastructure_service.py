@@ -6,6 +6,7 @@ import json
 import uuid
 
 from fastapi import HTTPException, status
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.infrastructure import Edificio, Piso, PlanoItem, Sede
@@ -114,6 +115,9 @@ class InfrastructureService:
         sede = await self.sede_repo.get(sede_id)
         if not sede:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sede no encontrada")
+        edificios = await self.edificio_repo.list_by_sede(sede_id)
+        for edificio in edificios:
+            await self.delete_edificio(edificio.id)
         await self.sede_repo.delete(sede)
 
     # ── Edificios ─────────────────────────────────────────────────────────
@@ -148,6 +152,9 @@ class InfrastructureService:
         edificio = await self.edificio_repo.get(edificio_id)
         if not edificio:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Edificio no encontrado")
+        pisos = await self.piso_repo.list_by_edificio(edificio_id)
+        for piso in pisos:
+            await self.delete_piso(piso.id)
         await self.edificio_repo.delete(edificio)
 
     # ── Pisos ─────────────────────────────────────────────────────────────
@@ -182,6 +189,7 @@ class InfrastructureService:
         piso = await self.piso_repo.get(piso_id)
         if not piso:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Piso no encontrado")
+        await self.db.execute(delete(PlanoItem).where(PlanoItem.piso_id == piso_id))
         await self.piso_repo.delete(piso)
 
 
