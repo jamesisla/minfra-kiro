@@ -9,7 +9,21 @@
  * cliente (funciona en server y cliente).
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+export function getApiUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  if (typeof window !== "undefined") {
+    // Si la app corre en localhost en dev local, usar http://localhost:8000
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+      return "http://localhost:8000";
+    }
+    // En producción en servidor remoto (Oracle Cloud, etc.), usar ruta relativa ("")
+    // para que las peticiones vayan al Nginx reverse proxy del mismo host
+    return "";
+  }
+  return "http://localhost:8000";
+}
 
 class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -24,8 +38,9 @@ interface RequestOptions extends RequestInit {
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { token, headers, ...rest } = options;
+  const baseUrl = getApiUrl();
 
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetch(`${baseUrl}${path}`, {
     ...rest,
     headers: {
       "Content-Type": "application/json",

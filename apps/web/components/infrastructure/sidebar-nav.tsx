@@ -16,10 +16,8 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { useInfrastructureStore } from "@/lib/stores/infrastructure-store";
-import { apiClient } from "@/lib/api/client";
+import { apiClient, getApiUrl } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 type EditTarget = {
   type: "sede" | "edificio" | "piso";
@@ -157,7 +155,7 @@ export function SidebarNav() {
 
     try {
       const res = await fetch(
-        `${API_URL}/api/v1/infrastructure/pisos/${uploadTargetPisoId}/upload-dxf`,
+        `${getApiUrl()}/api/v1/infrastructure/pisos/${uploadTargetPisoId}/upload-dxf`,
         {
           method: "POST",
           headers: { Authorization: `Bearer ${authToken}` },
