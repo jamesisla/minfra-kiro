@@ -21,6 +21,8 @@ from app.schemas.infrastructure import (
     EdificioRead,
     EdificioTreeItem,
     InfrastructureTree,
+    PlanoItemRead,
+    PlanoItemUpdate,
     PisoCreate,
     PisoRead,
     PisoReadWithSVG,
@@ -207,3 +209,14 @@ class InfrastructureService:
             entidades_procesadas=items_created,
             mensaje=f"DXF procesado correctamente: {items_created} entidades importadas.",
         )
+
+    # ── Edición de PlanoItems ───────────────────────────────────────────────
+
+    async def update_item(self, item_id: uuid.UUID, data: PlanoItemUpdate) -> PlanoItemRead:
+        item = await self.item_repo.get(item_id)
+        if not item:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Elemento no encontrado")
+        update_data = data.model_dump(exclude_unset=True)
+        item = await self.item_repo.update(item, update_data)
+        return PlanoItemRead.model_validate(item)
+

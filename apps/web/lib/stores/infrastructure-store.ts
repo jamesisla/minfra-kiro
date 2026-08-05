@@ -96,6 +96,7 @@ interface InfrastructureState {
   toggleEdificioExpand: (id: string) => void;
   setSelectedItem: (item: PlanoItem | null, position?: { x: number; y: number }) => void;
   clearSelectedItem: () => void;
+  updatePlanoItem: (itemId: string, data: Partial<PlanoItem>) => Promise<void>;
   refreshTree: () => Promise<void>;
 }
 
@@ -185,5 +186,36 @@ export const useInfrastructureStore = create<InfrastructureState>((set, get) => 
 
   clearSelectedItem: () => {
     set({ selectedItem: null, selectedItemPosition: null });
+  },
+
+  updatePlanoItem: async (itemId: string, data: Partial<PlanoItem>) => {
+    const { authToken, activePiso, selectedItem } = get();
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(itemId);
+
+    let updatedItemData = { ...data };
+
+    if (isUUID && authToken) {
+      try {
+        const res = await apiClient.patch<PlanoItem>(
+          `/api/v1/infrastructure/items/${itemId}`,
+          data,
+          { token: authToken }
+        );
+        updatedItemData = res;
+      } catch (e) {
+        console.error("Error al actualizar item en backend:", e);
+      }
+    }
+
+    if (activePiso) {
+      const updatedItems = activePiso.items.map((i) =>
+        i.id === itemId ? { ...i, ...updatedItemData } : i
+      );
+      set({ activePiso: { ...activePiso, items: updatedItems } });
+    }
+
+    if (selectedItem && selectedItem.id === itemId) {
+      set({ selectedItem: { ...selectedItem, ...updatedItemData } });
+    }
   },
 }));

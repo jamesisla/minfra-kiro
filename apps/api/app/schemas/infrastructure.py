@@ -20,6 +20,13 @@ class PlanoItemBase(BaseModel):
     metadata_extra: str | None = None
 
 
+class PlanoItemUpdate(BaseModel):
+    tipo: str | None = None
+    nombre: str | None = None
+    capa: str | None = None
+    metadata_extra: str | None = None
+
+
 class PlanoItemRead(PlanoItemBase):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID

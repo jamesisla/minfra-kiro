@@ -39,53 +39,49 @@ export function DxfViewer() {
   const transformRef = useRef(transform);
   transformRef.current = transform;
 
-  // Medir el contenedor y hacer fit real cuando cambia el piso
-  useEffect(() => {
-    if (!activePiso?.svg_data) return;
-
-    const measure = () => {
-      const el = containerRef.current;
-      if (!el) return;
-      const { width, height } = el.getBoundingClientRect();
-      if (width === 0 || height === 0) return;
-      setContainerSize({ w: width, h: height });
-
-      // Calcular escala para que el plano entre justo con un margen del 5%
-      const svgW = (activePiso.max_x ?? 100) - (activePiso.min_x ?? 0);
-      const svgH = (activePiso.max_y ?? 100) - (activePiso.min_y ?? 0);
-      if (svgW <= 0 || svgH <= 0) return;
-
-      const scaleX = (width * 0.95) / svgW;
-      const scaleY = (height * 0.95) / svgH;
-      const scale = Math.min(scaleX, scaleY);
-
-      // Centrar en el contenedor
-      const translateX = (width - svgW * scale) / 2;
-      const translateY = (height - svgH * scale) / 2;
-
-      setTransform({ scale, translateX, translateY });
-    };
-
-    // Pequeño delay para que el DOM esté listo
-    const t = setTimeout(measure, 50);
-    return () => clearTimeout(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePiso?.id]);
+  // Medir dimensiones del plano
+  const getSvgDimensions = useCallback(() => {
+    let svgW = (activePiso?.max_x ?? 0) - (activePiso?.min_x ?? 0);
+    let svgH = (activePiso?.max_y ?? 0) - (activePiso?.min_y ?? 0);
+    if (svgW <= 0 || svgH <= 0) {
+      const match = activePiso?.svg_data?.match(/viewBox=["']([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)\s+([0-9.-]+)["']/i);
+      if (match) {
+        svgW = parseFloat(match[3]);
+        svgH = parseFloat(match[4]);
+      }
+    }
+    if (svgW <= 0) svgW = 1000;
+    if (svgH <= 0) svgH = 800;
+    return { svgW, svgH };
+  }, [activePiso]);
 
   const fitToContainer = useCallback(() => {
     const el = containerRef.current;
     if (!el || !activePiso) return;
     const { width, height } = el.getBoundingClientRect();
-    const svgW = (activePiso.max_x ?? 100) - (activePiso.min_x ?? 0);
-    const svgH = (activePiso.max_y ?? 100) - (activePiso.min_y ?? 0);
-    if (svgW <= 0 || svgH <= 0) return;
-    const scale = Math.min((width * 0.95) / svgW, (height * 0.95) / svgH);
-    setTransform({
-      scale,
-      translateX: (width - svgW * scale) / 2,
-      translateY: (height - svgH * scale) / 2,
-    });
-  }, [activePiso]);
+    if (width === 0 || height === 0) return;
+
+    setContainerSize({ w: width, h: height });
+    const { svgW, svgH } = getSvgDimensions();
+
+    const scale = Math.min((width * 0.90) / svgW, (height * 0.90) / svgH);
+    const translateX = (width - svgW * scale) / 2;
+    const translateY = (height - svgH * scale) / 2;
+
+    setTransform({ scale, translateX, translateY });
+  }, [activePiso, getSvgDimensions]);
+
+  // Centrar cuando cambia el piso y escuchar resize del contenedor
+  useEffect(() => {
+    if (!activePiso?.svg_data) return;
+    fitToContainer();
+
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => fitToContainer());
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [activePiso?.id, fitToContainer]);
 
   // ── Pan ──────────────────────────────────────────────────────────────────
 
@@ -311,6 +307,7 @@ export function DxfViewer() {
   }
 
   const cssTransform = `translate(${transform.translateX}px, ${transform.translateY}px) scale(${transform.scale})`;
+  const svgDims = getSvgDimensions();
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden relative">
@@ -394,8 +391,8 @@ export function DxfViewer() {
             position: "absolute",
             top: 0,
             left: 0,
-            width: containerSize.w || "100%",
-            height: containerSize.h || "100%",
+            width: svgDims.svgW,
+            height: svgDims.svgH,
           }}
           dangerouslySetInnerHTML={{ __html: activePiso.svg_data }}
         />

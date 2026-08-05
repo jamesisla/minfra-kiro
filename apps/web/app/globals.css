@@ -78,21 +78,27 @@
   cursor: grabbing;
 }
 
-/* Entidades DXF: efecto hover */
+/* Entidades DXF: efecto hover interactivo */
 .dxf-entity {
-  transition: opacity 0.15s ease, filter 0.15s ease;
+  transition: all 0.15s ease-in-out;
   cursor: pointer;
+  pointer-events: all;
 }
 .dxf-entity:hover {
-  opacity: 0.75;
-  filter: brightness(0.9);
+  opacity: 0.85;
+  filter: brightness(1.15) drop-shadow(0 0 4px rgba(59, 130, 246, 0.5));
+  stroke: #3b82f6 !important;
+  stroke-width: 2px !important;
 }
 .dxf-entity.selected {
-  filter: brightness(0.85) saturate(1.5);
-  stroke-width: 1.5 !important;
+  filter: brightness(1.2) drop-shadow(0 0 6px rgba(234, 179, 8, 0.8));
+  stroke: #eab308 !important;
+  stroke-width: 2.5px !important;
 }
 
-/* En modo oscuro, invertir colores de relleno del SVG para que se vea bien */
+/* En modo oscuro, mejor visibilidad de texto y contornos */
 .dark .dxf-viewer svg text {
-  fill: #e2e8f0;
+  fill: #f8fafc;
+  font-weight: 500;
 }
+

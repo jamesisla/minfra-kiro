@@ -15,6 +15,8 @@ from app.schemas.infrastructure import (
     PisoCreate,
     PisoRead,
     PisoReadWithSVG,
+    PlanoItemRead,
+    PlanoItemUpdate,
     SedeCreate,
     SedeRead,
 )
@@ -109,3 +111,18 @@ async def upload_dxf(
     content = await file.read()
     service = InfrastructureService(db)
     return await service.upload_dxf(piso_id, file.filename or "plano.dxf", content)
+
+
+# ── Items de Plano ────────────────────────────────────────────────────────
+
+@router.patch("/items/{item_id}", response_model=PlanoItemRead)
+async def update_item(
+    item_id: uuid.UUID,
+    payload: PlanoItemUpdate,
+    db: DbSession,
+    _: CurrentUser,
+) -> PlanoItemRead:
+    """Actualiza la información de un item del plano (nombre, tipo, capa, metadata_extra)."""
+    service = InfrastructureService(db)
+    return await service.update_item(item_id, payload)
+
