@@ -44,6 +44,11 @@ class PisoCreate(PisoBase):
     edificio_id: uuid.UUID
 
 
+class PisoUpdate(BaseModel):
+    numero: int | None = None
+    nombre: str | None = None
+
+
 class PisoRead(PisoBase):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
@@ -74,6 +79,12 @@ class EdificioCreate(EdificioBase):
     sede_id: uuid.UUID
 
 
+class EdificioUpdate(BaseModel):
+    nombre: str | None = None
+    codigo: str | None = None
+    descripcion: str | None = None
+
+
 class EdificioRead(EdificioBase):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
@@ -93,6 +104,13 @@ class SedeBase(BaseModel):
 
 class SedeCreate(SedeBase):
     pass
+
+
+class SedeUpdate(BaseModel):
+    nombre: str | None = None
+    descripcion: str | None = None
+    direccion: str | None = None
+
 
 
 class SedeRead(SedeBase):

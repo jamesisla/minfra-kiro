@@ -20,6 +20,7 @@ from app.schemas.infrastructure import (
     EdificioCreate,
     EdificioRead,
     EdificioTreeItem,
+    EdificioUpdate,
     InfrastructureTree,
     PlanoItemRead,
     PlanoItemUpdate,
@@ -27,9 +28,11 @@ from app.schemas.infrastructure import (
     PisoRead,
     PisoReadWithSVG,
     PisoTreeItem,
+    PisoUpdate,
     SedeCreate,
     SedeRead,
     SedeTreeItem,
+    SedeUpdate,
 )
 from app.services.dxf_processor import process_dxf_bytes
 
@@ -99,6 +102,20 @@ class InfrastructureService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sede no encontrada")
         return SedeRead.model_validate(sede)
 
+    async def update_sede(self, sede_id: uuid.UUID, data: SedeUpdate) -> SedeRead:
+        sede = await self.sede_repo.get(sede_id)
+        if not sede:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sede no encontrada")
+        update_data = data.model_dump(exclude_unset=True)
+        sede = await self.sede_repo.update(sede, update_data)
+        return SedeRead.model_validate(sede)
+
+    async def delete_sede(self, sede_id: uuid.UUID) -> None:
+        sede = await self.sede_repo.get(sede_id)
+        if not sede:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sede no encontrada")
+        await self.sede_repo.delete(sede)
+
     # ── Edificios ─────────────────────────────────────────────────────────
 
     async def list_edificios(self, sede_id: uuid.UUID) -> list[EdificioRead]:
@@ -118,6 +135,20 @@ class InfrastructureService:
         )
         edificio = await self.edificio_repo.create(edificio)
         return EdificioRead.model_validate(edificio)
+
+    async def update_edificio(self, edificio_id: uuid.UUID, data: EdificioUpdate) -> EdificioRead:
+        edificio = await self.edificio_repo.get(edificio_id)
+        if not edificio:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Edificio no encontrado")
+        update_data = data.model_dump(exclude_unset=True)
+        edificio = await self.edificio_repo.update(edificio, update_data)
+        return EdificioRead.model_validate(edificio)
+
+    async def delete_edificio(self, edificio_id: uuid.UUID) -> None:
+        edificio = await self.edificio_repo.get(edificio_id)
+        if not edificio:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Edificio no encontrado")
+        await self.edificio_repo.delete(edificio)
 
     # ── Pisos ─────────────────────────────────────────────────────────────
 
@@ -139,11 +170,27 @@ class InfrastructureService:
         piso = await self.piso_repo.create(piso)
         return PisoRead.model_validate(piso)
 
+    async def update_piso(self, piso_id: uuid.UUID, data: PisoUpdate) -> PisoRead:
+        piso = await self.piso_repo.get(piso_id)
+        if not piso:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Piso no encontrado")
+        update_data = data.model_dump(exclude_unset=True)
+        piso = await self.piso_repo.update(piso, update_data)
+        return PisoRead.model_validate(piso)
+
+    async def delete_piso(self, piso_id: uuid.UUID) -> None:
+        piso = await self.piso_repo.get(piso_id)
+        if not piso:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Piso no encontrado")
+        await self.piso_repo.delete(piso)
+
+
     async def get_piso_with_svg(self, piso_id: uuid.UUID) -> PisoReadWithSVG:
         piso = await self.piso_repo.get_with_items(piso_id)
         if not piso:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Piso no encontrado")
         return PisoReadWithSVG.model_validate(piso)
+
 
     # ── Procesamiento DXF ─────────────────────────────────────────────────
 

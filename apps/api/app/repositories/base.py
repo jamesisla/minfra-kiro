@@ -66,9 +66,15 @@ class BaseRepository(Generic[ModelType]):
         await self.db.refresh(obj)
         return obj
 
+    async def delete(self, obj: ModelType) -> None:
+        """Elimina físicamente el registro de la base de datos."""
+        await self.db.delete(obj)
+        await self.db.commit()
+
     async def soft_delete(self, obj: ModelType) -> None:
         """Marca el registro como eliminado (soft delete)."""
         from datetime import datetime, timezone
 
         obj.deleted_at = datetime.now(timezone.utc)
         await self.db.commit()
+

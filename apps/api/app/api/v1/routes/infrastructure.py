@@ -11,14 +11,17 @@ from app.schemas.infrastructure import (
     DxfUploadResult,
     EdificioCreate,
     EdificioRead,
+    EdificioUpdate,
     InfrastructureTree,
     PisoCreate,
     PisoRead,
     PisoReadWithSVG,
+    PisoUpdate,
     PlanoItemRead,
     PlanoItemUpdate,
     SedeCreate,
     SedeRead,
+    SedeUpdate,
 )
 from app.services.infrastructure_service import InfrastructureService
 
@@ -54,6 +57,20 @@ async def get_sede(sede_id: uuid.UUID, db: DbSession, _: CurrentUser) -> SedeRea
     return await service.get_sede(sede_id)
 
 
+@router.patch("/sedes/{sede_id}", response_model=SedeRead)
+async def update_sede(
+    sede_id: uuid.UUID, payload: SedeUpdate, db: DbSession, _: CurrentUser
+) -> SedeRead:
+    service = InfrastructureService(db)
+    return await service.update_sede(sede_id, payload)
+
+
+@router.delete("/sedes/{sede_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_sede(sede_id: uuid.UUID, db: DbSession, _: CurrentUser) -> None:
+    service = InfrastructureService(db)
+    await service.delete_sede(sede_id)
+
+
 # ── Edificios ─────────────────────────────────────────────────────────────
 
 @router.get("/sedes/{sede_id}/edificios", response_model=list[EdificioRead])
@@ -66,6 +83,20 @@ async def list_edificios(sede_id: uuid.UUID, db: DbSession, _: CurrentUser) -> l
 async def create_edificio(payload: EdificioCreate, db: DbSession, _: CurrentUser) -> EdificioRead:
     service = InfrastructureService(db)
     return await service.create_edificio(payload)
+
+
+@router.patch("/edificios/{edificio_id}", response_model=EdificioRead)
+async def update_edificio(
+    edificio_id: uuid.UUID, payload: EdificioUpdate, db: DbSession, _: CurrentUser
+) -> EdificioRead:
+    service = InfrastructureService(db)
+    return await service.update_edificio(edificio_id, payload)
+
+
+@router.delete("/edificios/{edificio_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_edificio(edificio_id: uuid.UUID, db: DbSession, _: CurrentUser) -> None:
+    service = InfrastructureService(db)
+    await service.delete_edificio(edificio_id)
 
 
 # ── Pisos ─────────────────────────────────────────────────────────────────
@@ -89,6 +120,21 @@ async def get_piso(piso_id: uuid.UUID, db: DbSession, _: CurrentUser) -> PisoRea
     """Retorna el piso con su SVG y todos sus items. Usar para el visor."""
     service = InfrastructureService(db)
     return await service.get_piso_with_svg(piso_id)
+
+
+@router.patch("/pisos/{piso_id}", response_model=PisoRead)
+async def update_piso(
+    piso_id: uuid.UUID, payload: PisoUpdate, db: DbSession, _: CurrentUser
+) -> PisoRead:
+    service = InfrastructureService(db)
+    return await service.update_piso(piso_id, payload)
+
+
+@router.delete("/pisos/{piso_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_piso(piso_id: uuid.UUID, db: DbSession, _: CurrentUser) -> None:
+    service = InfrastructureService(db)
+    await service.delete_piso(piso_id)
+
 
 
 # ── Upload DXF ────────────────────────────────────────────────────────────
