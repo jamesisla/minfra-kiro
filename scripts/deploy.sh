@@ -14,7 +14,7 @@ git reset --hard origin/main
 # 2. Sincronizar repositorio a /var/www/sdd-project si el servicio sdd-api corre desde allí
 if [ -d "/var/www/sdd-project" ] && [ "$ROOT_DIR" != "/var/www/sdd-project" ]; then
   echo "📂 Sincronizando repositorio a /var/www/sdd-project..."
-  sudo rsync -av --delete --exclude='node_modules' --exclude='.next' --exclude='venv' --exclude='.venv' --exclude='.git' "$ROOT_DIR/" /var/www/sdd-project/
+  sudo cp -r "$ROOT_DIR/apps" "$ROOT_DIR/scripts" "$ROOT_DIR/package.json" /var/www/sdd-project/ 2>/dev/null || true
   sudo chown -R $(whoami):$(whoami) /var/www/sdd-project 2>/dev/null || true
 fi
 
