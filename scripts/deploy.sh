@@ -14,6 +14,7 @@ git reset --hard origin/main
 # 2. Actualizar backend
 echo "📦 Actualizando backend (FastAPI)..."
 cd "$ROOT_DIR/apps/api"
+find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 if [ -d "venv" ]; then
   source venv/bin/activate
 elif [ -d ".venv" ]; then

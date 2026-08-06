@@ -66,9 +66,14 @@ async def update_sede(
 
 
 @router.delete("/sedes/{sede_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_sede(sede_id: uuid.UUID, db: DbSession, _: CurrentUser) -> None:
+@router.delete("/sedes/{sede_id}/", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_sede(sede_id: str, db: DbSession, _: CurrentUser) -> None:
     service = InfrastructureService(db)
-    await service.delete_sede(sede_id)
+    try:
+        val_id = uuid.UUID(sede_id.strip("/"))
+        await service.delete_sede(val_id)
+    except ValueError:
+        pass
 
 
 # ── Edificios ─────────────────────────────────────────────────────────────
@@ -94,9 +99,14 @@ async def update_edificio(
 
 
 @router.delete("/edificios/{edificio_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_edificio(edificio_id: uuid.UUID, db: DbSession, _: CurrentUser) -> None:
+@router.delete("/edificios/{edificio_id}/", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_edificio(edificio_id: str, db: DbSession, _: CurrentUser) -> None:
     service = InfrastructureService(db)
-    await service.delete_edificio(edificio_id)
+    try:
+        val_id = uuid.UUID(edificio_id.strip("/"))
+        await service.delete_edificio(val_id)
+    except ValueError:
+        pass
 
 
 # ── Pisos ─────────────────────────────────────────────────────────────────
@@ -131,9 +141,14 @@ async def update_piso(
 
 
 @router.delete("/pisos/{piso_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_piso(piso_id: uuid.UUID, db: DbSession, _: CurrentUser) -> None:
+@router.delete("/pisos/{piso_id}/", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_piso(piso_id: str, db: DbSession, _: CurrentUser) -> None:
     service = InfrastructureService(db)
-    await service.delete_piso(piso_id)
+    try:
+        val_id = uuid.UUID(piso_id.strip("/"))
+        await service.delete_piso(val_id)
+    except ValueError:
+        pass
 
 
 
