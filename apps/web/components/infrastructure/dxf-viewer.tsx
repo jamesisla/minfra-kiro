@@ -312,31 +312,31 @@ export function DxfViewer() {
   return (
     <div className="flex-1 flex flex-col overflow-hidden relative">
       {/* Toolbar visor */}
-      <div className="absolute top-3 right-3 z-20 flex flex-col gap-1">
+      <div className="absolute top-3 right-3 z-20 flex flex-col gap-1.5">
         <button
           onClick={zoomIn}
-          className="w-8 h-8 bg-card border border-border rounded-md flex items-center justify-center text-foreground hover:bg-secondary transition-colors shadow-sm"
+          className="w-8 h-8 bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-lg flex items-center justify-center text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shadow-md backdrop-blur-sm"
           title="Acercar"
         >
           <ZoomIn className="w-4 h-4" />
         </button>
         <button
           onClick={zoomOut}
-          className="w-8 h-8 bg-card border border-border rounded-md flex items-center justify-center text-foreground hover:bg-secondary transition-colors shadow-sm"
+          className="w-8 h-8 bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-lg flex items-center justify-center text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shadow-md backdrop-blur-sm"
           title="Alejar"
         >
           <ZoomOut className="w-4 h-4" />
         </button>
         <button
           onClick={fitToContainer}
-          className="w-8 h-8 bg-card border border-border rounded-md flex items-center justify-center text-foreground hover:bg-secondary transition-colors shadow-sm"
+          className="w-8 h-8 bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-lg flex items-center justify-center text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shadow-md backdrop-blur-sm"
           title="Ajustar a la pantalla"
         >
           <Maximize2 className="w-4 h-4" />
         </button>
         <button
           onClick={() => setTransform({ scale: 1, translateX: 0, translateY: 0 })}
-          className="w-8 h-8 bg-card border border-border rounded-md flex items-center justify-center text-foreground hover:bg-secondary transition-colors shadow-sm"
+          className="w-8 h-8 bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-lg flex items-center justify-center text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shadow-md backdrop-blur-sm"
           title="Restablecer"
         >
           <RotateCcw className="w-4 h-4" />
@@ -344,20 +344,20 @@ export function DxfViewer() {
       </div>
 
       {/* Info de escala */}
-      <div className="absolute bottom-3 right-3 z-20 bg-card/80 border border-border rounded px-2 py-1 text-xs text-muted-foreground backdrop-blur-sm">
+      <div className="absolute bottom-3 right-3 z-20 bg-white/90 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-md px-2 py-1 text-xs font-mono font-semibold text-zinc-700 dark:text-zinc-300 shadow-sm backdrop-blur-sm">
         {Math.round(transform.scale * 100)}%
       </div>
 
       {/* Info del piso activo */}
-      <div className="absolute top-3 left-3 z-20 bg-card/80 border border-border rounded px-3 py-1.5 text-xs backdrop-blur-sm">
-        <span className="font-medium">
+      <div className="absolute top-3 left-3 z-20 bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-1.5 text-xs shadow-md backdrop-blur-sm text-zinc-900 dark:text-zinc-100">
+        <span className="font-bold">
           {activePiso.nombre ?? `Piso ${activePiso.numero}`}
         </span>
         {activePiso.archivo_dxf && (
-          <span className="ml-2 text-muted-foreground">{activePiso.archivo_dxf}</span>
+          <span className="ml-2 text-zinc-500 dark:text-zinc-400 font-mono text-[11px]">{activePiso.archivo_dxf}</span>
         )}
         {activePiso.items.length > 0 && (
-          <span className="ml-2 text-muted-foreground">
+          <span className="ml-2 text-zinc-500 dark:text-zinc-400 font-medium">
             · {activePiso.items.length} entidades
           </span>
         )}
@@ -366,11 +366,11 @@ export function DxfViewer() {
       {/* Leyenda de capas */}
       <LayerLegend items={activePiso.items} />
 
-      {/* Área del visor */}
+      {/* Área del visor con fondo adaptable a tema claro/oscuro */}
       <div
         ref={containerRef}
         className={cn(
-          "flex-1 overflow-hidden dxf-viewer bg-muted/20 relative",
+          "flex-1 overflow-hidden dxf-viewer relative transition-colors duration-300",
           selectedItem ? "cursor-default" : ""
         )}
         onMouseDown={onMouseDown}
@@ -430,35 +430,35 @@ function UploadIcon({ className }: { className?: string }) {
 // ── Leyenda de capas ──────────────────────────────────────────────────────────
 
 const LEGEND_COLORS: Record<string, string> = {
-  PARED:           "#1e293b",
-  COLUMNA:         "#94a3b8",
-  AREA:            "#f1f5f9",
-  SALA:            "#dbeafe",
-  LABORATORIO:     "#d1fae5",
-  OFICINA:         "#fef3c7",
-  BAÑO:            "#e0e7ff",
-  PASILLO:         "#f3f4f6",
-  ESCALERA:        "#fce7f3",
-  ASCENSOR:        "#ede9fe",
-  SALA_SERVIDORES: "#fee2e2",
-  DEPOSITO:        "#fef9c3",
-  COMEDOR:         "#ffedd5",
-  CAFETERIA:       "#ffedd5",
-  BIBLIOTECA:      "#cffafe",
-  AUDITORIO:       "#f0fdf4",
-  SALA_REUNION:    "#fdf4ff",
-  CARPINTERIA:     "#fed7aa",
-  VENTANA:         "#bae6fd",
-  MOBILIARIO:      "#e2e8f0",
-  EQUIPO:          "#fde68a",
-  TEXTO:           "#e2e8f0",
-  DEFAULT:         "#f1f5f9",
+  PARED:           "#334155",
+  COLUMNA:         "#64748b",
+  AREA:            "#38bdf8",
+  SALA:            "#3b82f6",
+  LABORATORIO:     "#10b981",
+  OFICINA:         "#f59e0b",
+  BAÑO:            "#6366f1",
+  PASILLO:         "#94a3b8",
+  ESCALERA:        "#ec4899",
+  ASCENSOR:        "#8b5cf6",
+  SALA_SERVIDORES: "#ef4444",
+  DEPOSITO:        "#eab308",
+  COMEDOR:         "#f97316",
+  CAFETERIA:       "#f97316",
+  BIBLIOTECA:      "#06b6d4",
+  AUDITORIO:       "#22c55e",
+  SALA_REUNION:    "#d946ef",
+  CARPINTERIA:     "#f97316",
+  VENTANA:         "#38bdf8",
+  MOBILIARIO:      "#64748b",
+  EQUIPO:          "#eab308",
+  TEXTO:           "#0ea5e9",
+  DEFAULT:         "#3b82f6",
 };
 
 const LEGEND_BORDER: Record<string, string> = {
-  PARED: "#1e293b", SALA: "#93c5fd", LABORATORIO: "#6ee7b7",
-  OFICINA: "#fcd34d", BAÑO: "#a5b4fc", ESCALERA: "#f9a8d4",
-  ASCENSOR: "#c4b5fd", CARPINTERIA: "#fb923c", DEFAULT: "#94a3b8",
+  PARED: "#475569", SALA: "#2563eb", LABORATORIO: "#059669",
+  OFICINA: "#d97706", BAÑO: "#4f46e5", ESCALERA: "#db2777",
+  ASCENSOR: "#7c3aed", CARPINTERIA: "#ea580c", DEFAULT: "#2563eb",
 };
 
 const TYPE_LABELS_SHORT: Record<string, string> = {
@@ -487,29 +487,29 @@ function LayerLegend({ items }: { items: import("@/lib/stores/infrastructure-sto
   if (types.length === 0) return null;
 
   return (
-    <div className="absolute bottom-10 left-3 z-20 bg-card/90 border border-border rounded-lg shadow-lg backdrop-blur-sm max-w-[200px]">
+    <div className="absolute bottom-10 left-3 z-20 bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl backdrop-blur-md max-w-[210px] text-zinc-900 dark:text-zinc-100">
       <button
         onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold hover:bg-secondary/50 transition-colors rounded-lg"
+        className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors rounded-xl"
       >
-        <span>Capas</span>
-        <span className="text-muted-foreground">{open ? "▲" : "▼"}</span>
+        <span>Capas ({types.length})</span>
+        <span className="text-zinc-400 dark:text-zinc-500 text-[10px]">{open ? "▲" : "▼"}</span>
       </button>
       {open && (
-        <div className="px-2 pb-2 space-y-0.5 max-h-64 overflow-y-auto">
+        <div className="px-2.5 pb-2.5 space-y-1 max-h-64 overflow-y-auto">
           {types.map(([tipo, count]) => (
-            <div key={tipo} className="flex items-center gap-2 px-1 py-0.5 rounded hover:bg-secondary/30 transition-colors">
+            <div key={tipo} className="flex items-center gap-2 px-1.5 py-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors">
               <span
-                className="w-3 h-3 rounded-sm shrink-0 border"
+                className="w-3 h-3 rounded shrink-0 border shadow-sm"
                 style={{
                   background: LEGEND_COLORS[tipo] ?? LEGEND_COLORS.DEFAULT,
                   borderColor: LEGEND_BORDER[tipo] ?? LEGEND_BORDER.DEFAULT,
                 }}
               />
-              <span className="text-xs text-foreground flex-1 truncate">
+              <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 flex-1 truncate">
                 {TYPE_LABELS_SHORT[tipo] ?? tipo}
               </span>
-              <span className="text-xs text-muted-foreground tabular-nums">{count}</span>
+              <span className="text-xs font-mono font-bold text-zinc-400 dark:text-zinc-500 tabular-nums">{count}</span>
             </div>
           ))}
         </div>
