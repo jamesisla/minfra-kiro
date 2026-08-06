@@ -98,31 +98,31 @@ LAYER_TYPE_MAP: list[tuple[str, str]] = [
 # ── Estilos visuales por tipo ──────────────────────────────────────────────────
 
 TYPE_STYLES: dict[str, dict] = {
-    "PARED":          {"fill": "transparent", "stroke": "#e2e8f0", "opacity": 1.0,  "z": 10},
-    "COLUMNA":        {"fill": "transparent", "stroke": "#cbd5e1", "opacity": 1.0,  "z": 10},
+    "PARED":          {"fill": "transparent", "stroke": "#475569", "opacity": 1.0,  "z": 10},
+    "COLUMNA":        {"fill": "transparent", "stroke": "#64748b", "opacity": 1.0,  "z": 10},
     "AREA":           {"fill": "transparent", "stroke": "#64748b", "opacity": 0.5,  "z": 1},
-    "SALA":           {"fill": "transparent", "stroke": "#38bdf8", "opacity": 0.9,  "z": 2},
-    "LABORATORIO":    {"fill": "transparent", "stroke": "#34d399", "opacity": 0.9,  "z": 2},
-    "OFICINA":        {"fill": "transparent", "stroke": "#fbbf24", "opacity": 0.9,  "z": 2},
-    "BAÑO":           {"fill": "transparent", "stroke": "#818cf8", "opacity": 0.9,  "z": 2},
+    "SALA":           {"fill": "transparent", "stroke": "#64748b", "opacity": 0.9,  "z": 2},
+    "LABORATORIO":    {"fill": "transparent", "stroke": "#10b981", "opacity": 0.8,  "z": 2},
+    "OFICINA":        {"fill": "transparent", "stroke": "#f59e0b", "opacity": 0.8,  "z": 2},
+    "BAÑO":           {"fill": "transparent", "stroke": "#6366f1", "opacity": 0.8,  "z": 2},
     "PASILLO":        {"fill": "transparent", "stroke": "#64748b", "opacity": 0.5,  "z": 1},
-    "ESCALERA":       {"fill": "transparent", "stroke": "#f472b6", "opacity": 0.8,  "z": 2},
-    "ASCENSOR":       {"fill": "transparent", "stroke": "#c084fc", "opacity": 0.8,  "z": 2},
-    "SALA_SERVIDORES":{"fill": "transparent", "stroke": "#f87171", "opacity": 0.9,  "z": 2},
-    "DEPOSITO":       {"fill": "transparent", "stroke": "#facc15", "opacity": 0.8,  "z": 2},
-    "COMEDOR":        {"fill": "transparent", "stroke": "#fb923c", "opacity": 0.8,  "z": 2},
-    "CAFETERIA":      {"fill": "transparent", "stroke": "#fb923c", "opacity": 0.8,  "z": 2},
-    "BIBLIOTECA":     {"fill": "transparent", "stroke": "#22d3ee", "opacity": 0.8,  "z": 2},
-    "AUDITORIO":      {"fill": "transparent", "stroke": "#4ade80", "opacity": 0.8,  "z": 2},
-    "SALA_REUNION":   {"fill": "transparent", "stroke": "#e879f9", "opacity": 0.9,  "z": 2},
-    "CARPINTERIA":    {"fill": "transparent", "stroke": "#fb923c", "opacity": 0.9,  "z": 8},
-    "VENTANA":        {"fill": "transparent", "stroke": "#38bdf8", "opacity": 0.8,  "z": 8},
-    "MOBILIARIO":     {"fill": "transparent", "stroke": "#c084fc", "opacity": 0.9,  "z": 5},
-    "EQUIPO":         {"fill": "transparent", "stroke": "#facc15", "opacity": 0.9,  "z": 5},
+    "ESCALERA":       {"fill": "transparent", "stroke": "#ec4899", "opacity": 0.8,  "z": 2},
+    "ASCENSOR":       {"fill": "transparent", "stroke": "#8b5cf6", "opacity": 0.8,  "z": 2},
+    "SALA_SERVIDORES":{"fill": "transparent", "stroke": "#ef4444", "opacity": 0.8,  "z": 2},
+    "DEPOSITO":       {"fill": "transparent", "stroke": "#eab308", "opacity": 0.8,  "z": 2},
+    "COMEDOR":        {"fill": "transparent", "stroke": "#f97316", "opacity": 0.8,  "z": 2},
+    "CAFETERIA":      {"fill": "transparent", "stroke": "#f97316", "opacity": 0.8,  "z": 2},
+    "BIBLIOTECA":     {"fill": "transparent", "stroke": "#06b6d4", "opacity": 0.8,  "z": 2},
+    "AUDITORIO":      {"fill": "transparent", "stroke": "#22c55e", "opacity": 0.8,  "z": 2},
+    "SALA_REUNION":   {"fill": "transparent", "stroke": "#d946ef", "opacity": 0.8,  "z": 2},
+    "CARPINTERIA":    {"fill": "transparent", "stroke": "#64748b", "opacity": 0.8,  "z": 8},
+    "VENTANA":        {"fill": "transparent", "stroke": "#64748b", "opacity": 0.8,  "z": 8},
+    "MOBILIARIO":     {"fill": "transparent", "stroke": "#64748b", "opacity": 0.8,  "z": 5},
+    "EQUIPO":         {"fill": "transparent", "stroke": "#64748b", "opacity": 0.8,  "z": 5},
     "PROYECCION":     {"fill": "none",        "stroke": "#64748b", "opacity": 0.4,  "z": 3},
-    "TEXTO":          {"fill": "#f8fafc",     "stroke": "none",    "opacity": 1.0,  "z": 15},
+    "TEXTO":          {"fill": "#334155",     "stroke": "none",    "opacity": 1.0,  "z": 15},
     "COTA":           {"fill": "none",        "stroke": "#64748b", "opacity": 0.5,  "z": 4},
-    "DEFAULT":        {"fill": "transparent", "stroke": "#94a3b8", "opacity": 0.7,  "z": 3},
+    "DEFAULT":        {"fill": "transparent", "stroke": "#64748b", "opacity": 0.7,  "z": 3},
 }
 
 
@@ -282,10 +282,10 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
     width  = max(global_maxx - global_minx, 1.0)
     height = max(global_maxy - global_miny, 1.0)
 
-    # Grosor de línea base ultra delgado (0.50px con vector-effect)
-    base_sw = 0.50
-    wall_sw  = 0.75
-    thin_sw  = 0.35
+    # Grosor de línea base ultra delgado reducido a la mitad (0.075px)
+    base_sw = 0.075
+    wall_sw  = 0.10
+    thin_sw  = 0.05
     font_size = width * 0.008
 
     def tx(x: float) -> float:
@@ -426,17 +426,19 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
                 block_tipo = "MOBILIARIO" if "mueble" in layer.lower() or "furn" in layer.lower() else (
                     "CARPINTERIA" if "door" in layer.lower() or "puerta" in layer.lower() else "EQUIPO"
                 )
+                # Tamaño sutil proporcional al plano
+                bw = max(width * 0.008, 0.5)
                 elem = (
                     f'<rect id="{elem_id}" data-layer="{layer}" data-tipo="{block_tipo}" '
                     f'data-texto="{block_name}" '
-                    f'x="{tx(ip.x)-1.5:.2f}" y="{ty(ip.y)-1.5:.2f}" width="3" height="3" '
-                    f'fill="#38bdf8" stroke="#0284c7" stroke-width="0.75" vector-effect="non-scaling-stroke" '
-                    f'rx="0.5" class="dxf-entity dxf-block" />'
+                    f'x="{tx(ip.x)-bw/2:.2f}" y="{ty(ip.y)-bw/2:.2f}" width="{bw:.2f}" height="{bw:.2f}" '
+                    f'fill="transparent" stroke="none" vector-effect="non-scaling-stroke" '
+                    f'class="dxf-entity dxf-block" />'
                 )
                 add_svg(5, elem)
                 entities.append(DxfEntity(
                     tipo=block_tipo, nombre=block_name, capa=layer,
-                    x=ip.x, y=ip.y, ancho=3.0, alto=3.0,
+                    x=ip.x, y=ip.y, ancho=bw, alto=bw,
                     svg_element=elem_id, metadata={"bloque": block_name},
                 ))
 

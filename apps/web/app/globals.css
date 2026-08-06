@@ -88,7 +88,7 @@
   background-color: transparent !important;
 }
 
-/* FORZAR que ABSOLUTAMENTE TODOS los trazos vectoriales sean líneas ultrafinas de 0.5px */
+/* FORZAR que ABSOLUTAMENTE TODOS los trazos vectoriales sean líneas ultrafinas al mínimo de delgadez (0.075px) */
 .dxf-viewer svg path,
 .dxf-viewer svg line,
 .dxf-viewer svg polyline,
@@ -97,10 +97,10 @@
 .dxf-viewer svg circle,
 .dxf-viewer svg ellipse {
   vector-effect: non-scaling-stroke !important;
-  stroke-width: 0.5px !important;
+  stroke-width: 0.075px !important;
 }
 
-/* FORZAR RELLENO TRANSPARENTE: Ningún elemento tiene relleno opaco (elimina bloques azules) */
+/* FORZAR RELLENO TRANSPARENTE: Ningún elemento tiene relleno opaco por defecto */
 .dxf-viewer svg polygon:not(.selected),
 .dxf-viewer svg polyline:not(.selected),
 .dxf-viewer svg path:not(.selected),
@@ -110,9 +110,45 @@
   fill: transparent !important;
 }
 
+/* FORZAR que los componentes/bloques sin seleccionar sean 100% TRANSPARENTES (sin bordes ni rellenos azules) */
+.dxf-viewer svg .dxf-block:not(.selected),
+.dxf-viewer svg rect[data-tipo="MOBILIARIO"]:not(.selected),
+.dxf-viewer svg rect[data-tipo="EQUIPO"]:not(.selected),
+.dxf-viewer svg rect[data-tipo="CARPINTERIA"]:not(.selected),
+.dxf-viewer svg rect.dxf-entity:not(.selected) {
+  fill: transparent !important;
+  stroke: transparent !important;
+}
+
+.dark .dxf-viewer svg .dxf-block:not(.selected),
+.dark .dxf-viewer svg rect[data-tipo="MOBILIARIO"]:not(.selected),
+.dark .dxf-viewer svg rect[data-tipo="EQUIPO"]:not(.selected),
+.dark .dxf-viewer svg rect[data-tipo="CARPINTERIA"]:not(.selected),
+.dark .dxf-viewer svg rect.dxf-entity:not(.selected) {
+  fill: transparent !important;
+  stroke: transparent !important;
+}
+
+/* Neutralizar cualquier trazo azul residual en planos cargados anteriormente sin seleccionar */
+.dxf-viewer svg [stroke="#38bdf8"]:not(.selected):not(.dxf-block),
+.dxf-viewer svg [stroke="#0284c7"]:not(.selected):not(.dxf-block),
+.dxf-viewer svg [stroke="#3b82f6"]:not(.selected):not(.dxf-block),
+.dxf-viewer svg [stroke="#2563eb"]:not(.selected):not(.dxf-block),
+.dxf-viewer svg [stroke="#0ea5e9"]:not(.selected):not(.dxf-block) {
+  stroke: #64748b !important;
+}
+
+.dark .dxf-viewer svg [stroke="#38bdf8"]:not(.selected):not(.dxf-block),
+.dark .dxf-viewer svg [stroke="#0284c7"]:not(.selected):not(.dxf-block),
+.dark .dxf-viewer svg [stroke="#3b82f6"]:not(.selected):not(.dxf-block),
+.dark .dxf-viewer svg [stroke="#2563eb"]:not(.selected):not(.dxf-block),
+.dark .dxf-viewer svg [stroke="#0ea5e9"]:not(.selected):not(.dxf-block) {
+  stroke: #94a3b8 !important;
+}
+
 .dxf-viewer svg text {
   fill: #0f172a;
-  font-weight: 600;
+  font-weight: 500;
   transition: fill 0.3s ease;
 }
 
@@ -127,7 +163,7 @@
 
 .dark .dxf-viewer svg text {
   fill: #f8fafc !important;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 /* ── Entidades DXF: Interacción y Selección Fina ────────────────────────── */
@@ -138,25 +174,27 @@
   pointer-events: all;
 }
 
-.dxf-entity:hover {
-  stroke: #3b82f6 !important;
-  stroke-width: 1.0px !important;
-  filter: drop-shadow(0 0 3px rgba(59, 130, 246, 0.6));
+.dxf-entity:hover:not(.selected) {
+  stroke: #60a5fa !important;
+  stroke-width: 0.25px !important;
+  filter: drop-shadow(0 0 2px rgba(96, 165, 250, 0.5));
 }
 
-/* Selección Fina: ÚNICAMENTE la entidad seleccionada se ilumina en azul traslúcido */
+/* Selección Fina: ÚNICAMENTE la entidad o componente seleccionado se ilumina en azul traslúcido */
 .dxf-entity.selected,
-.dxf-viewer svg .selected {
-  fill: rgba(59, 130, 246, 0.30) !important;
+.dxf-viewer svg .selected,
+.dxf-viewer svg .dxf-block.selected {
+  fill: rgba(59, 130, 246, 0.25) !important;
   stroke: #2563eb !important;
-  stroke-width: 1.2px !important;
-  filter: drop-shadow(0 0 6px rgba(37, 99, 235, 0.7)) !important;
+  stroke-width: 0.45px !important;
+  filter: drop-shadow(0 0 4px rgba(37, 99, 235, 0.7)) !important;
 }
 
 .dark .dxf-entity.selected,
-.dark .dxf-viewer svg .selected {
-  fill: rgba(56, 189, 248, 0.35) !important;
+.dark .dxf-viewer svg .selected,
+.dark .dxf-viewer svg .dxf-block.selected {
+  fill: rgba(56, 189, 248, 0.30) !important;
   stroke: #38bdf8 !important;
-  stroke-width: 1.2px !important;
-  filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.8)) !important;
+  stroke-width: 0.45px !important;
+  filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.8)) !important;
 }
