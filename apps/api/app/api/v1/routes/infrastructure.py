@@ -65,15 +65,18 @@ async def update_sede(
     return await service.update_sede(sede_id, payload)
 
 
-@router.delete("/sedes/{sede_id}", status_code=status.HTTP_204_NO_CONTENT)
-@router.delete("/sedes/{sede_id}/", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_sede(sede_id: str, db: DbSession, _: CurrentUser) -> None:
+@router.post("/sedes/{sede_id}/delete", status_code=status.HTTP_200_OK)
+@router.post("/sedes/{sede_id}/delete/", status_code=status.HTTP_200_OK)
+@router.delete("/sedes/{sede_id}", status_code=status.HTTP_200_OK)
+@router.delete("/sedes/{sede_id}/", status_code=status.HTTP_200_OK)
+async def delete_sede(sede_id: str, db: DbSession, _: CurrentUser) -> dict[str, str]:
     service = InfrastructureService(db)
     try:
         val_id = uuid.UUID(sede_id.strip("/"))
         await service.delete_sede(val_id)
     except ValueError:
         pass
+    return {"message": "Sede eliminada exitosamente"}
 
 
 # ── Edificios ─────────────────────────────────────────────────────────────
@@ -98,15 +101,18 @@ async def update_edificio(
     return await service.update_edificio(edificio_id, payload)
 
 
-@router.delete("/edificios/{edificio_id}", status_code=status.HTTP_204_NO_CONTENT)
-@router.delete("/edificios/{edificio_id}/", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_edificio(edificio_id: str, db: DbSession, _: CurrentUser) -> None:
+@router.post("/edificios/{edificio_id}/delete", status_code=status.HTTP_200_OK)
+@router.post("/edificios/{edificio_id}/delete/", status_code=status.HTTP_200_OK)
+@router.delete("/edificios/{edificio_id}", status_code=status.HTTP_200_OK)
+@router.delete("/edificios/{edificio_id}/", status_code=status.HTTP_200_OK)
+async def delete_edificio(edificio_id: str, db: DbSession, _: CurrentUser) -> dict[str, str]:
     service = InfrastructureService(db)
     try:
         val_id = uuid.UUID(edificio_id.strip("/"))
         await service.delete_edificio(val_id)
     except ValueError:
         pass
+    return {"message": "Edificio eliminado exitosamente"}
 
 
 # ── Pisos ─────────────────────────────────────────────────────────────────
@@ -140,15 +146,18 @@ async def update_piso(
     return await service.update_piso(piso_id, payload)
 
 
-@router.delete("/pisos/{piso_id}", status_code=status.HTTP_204_NO_CONTENT)
-@router.delete("/pisos/{piso_id}/", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_piso(piso_id: str, db: DbSession, _: CurrentUser) -> None:
+@router.post("/pisos/{piso_id}/delete", status_code=status.HTTP_200_OK)
+@router.post("/pisos/{piso_id}/delete/", status_code=status.HTTP_200_OK)
+@router.delete("/pisos/{piso_id}", status_code=status.HTTP_200_OK)
+@router.delete("/pisos/{piso_id}/", status_code=status.HTTP_200_OK)
+async def delete_piso(piso_id: str, db: DbSession, _: CurrentUser) -> dict[str, str]:
     service = InfrastructureService(db)
     try:
         val_id = uuid.UUID(piso_id.strip("/"))
         await service.delete_piso(val_id)
     except ValueError:
         pass
+    return {"message": "Piso eliminado exitosamente"}
 
 
 

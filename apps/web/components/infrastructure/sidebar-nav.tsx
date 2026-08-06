@@ -120,12 +120,15 @@ export function SidebarNav() {
 
       try {
         await apiClient.delete(`/api/v1${pathSegment}`, { token: authToken });
-      } catch (firstErr) {
-        // Fallback en caso de que Nginx redireccione o elimine /v1 del path
+      } catch (err1) {
         try {
-          await apiClient.delete(`/api${pathSegment}`, { token: authToken });
-        } catch (secondErr) {
-          throw firstErr;
+          await apiClient.post(`/api/v1${pathSegment}/delete`, {}, { token: authToken });
+        } catch (err2) {
+          try {
+            await apiClient.delete(`/api${pathSegment}`, { token: authToken });
+          } catch (err3) {
+            await apiClient.post(`/api${pathSegment}/delete`, {}, { token: authToken });
+          }
         }
       }
       await refreshTree();
