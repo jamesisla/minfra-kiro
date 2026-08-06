@@ -1,9 +1,9 @@
 """
-Procesador de archivos DXF usando ezdxf.
+Procesador de archivos DXF usando ezdxf (Versión 2.0).
 
 Convierte entidades DXF en:
-1. SVG embebible para el visor web con stroke-width proporcional al viewport
-2. PlanoItems con metadata (tipo, capa, bbox, nombre)
+1. SVG embebible con vector-effect="non-scaling-stroke" para trazos ultrafinos constantes.
+2. PlanoItems con metadata avanzada (asociación espacial texto-polígono, cálculo de área m², perímetro y bloques de mobiliario).
 """
 import json
 import math
@@ -22,7 +22,6 @@ except ImportError:
 
 
 # ── Mapeo de capas a tipos semánticos ─────────────────────────────────────────
-# Soporta nombres en español e inglés, parciales (keyword in layer_lower)
 
 LAYER_TYPE_MAP: list[tuple[str, str]] = [
     # Paredes y estructura
@@ -84,6 +83,7 @@ LAYER_TYPE_MAP: list[tuple[str, str]] = [
     ("ventana",     "VENTANA"),
     ("mueble",      "MOBILIARIO"),
     ("furniture",   "MOBILIARIO"),
+    ("furn",        "MOBILIARIO"),
     ("equip",       "EQUIPO"),
     ("proyeccion",  "PROYECCION"),
     # Texto/cotas
@@ -117,40 +117,12 @@ TYPE_STYLES: dict[str, dict] = {
     "SALA_REUNION":   {"fill": "#fdf4ff", "stroke": "#e879f9", "opacity": 0.7,  "z": 2},
     "CARPINTERIA":    {"fill": "#fed7aa", "stroke": "#fb923c", "opacity": 0.9,  "z": 8},
     "VENTANA":        {"fill": "#bae6fd", "stroke": "#38bdf8", "opacity": 0.8,  "z": 8},
-    "MOBILIARIO":     {"fill": "#e2e8f0", "stroke": "#94a3b8", "opacity": 0.6,  "z": 5},
-    "EQUIPO":         {"fill": "#fde68a", "stroke": "#f59e0b", "opacity": 0.7,  "z": 5},
+    "MOBILIARIO":     {"fill": "#e2e8f0", "stroke": "#64748b", "opacity": 0.8,  "z": 5},
+    "EQUIPO":         {"fill": "#fde68a", "stroke": "#d97706", "opacity": 0.8,  "z": 5},
     "PROYECCION":     {"fill": "none",    "stroke": "#94a3b8", "opacity": 0.4,  "z": 3},
     "TEXTO":          {"fill": "#1e293b", "stroke": "none",    "opacity": 1.0,  "z": 15},
     "COTA":           {"fill": "none",    "stroke": "#94a3b8", "opacity": 0.5,  "z": 4},
     "DEFAULT":        {"fill": "none",    "stroke": "#64748b", "opacity": 0.6,  "z": 3},
-}
-
-TYPE_LABELS: dict[str, str] = {
-    "PARED":           "Pared / Muro",
-    "COLUMNA":         "Columna",
-    "AREA":            "Área / Recinto",
-    "SALA":            "Sala",
-    "LABORATORIO":     "Laboratorio",
-    "OFICINA":         "Oficina",
-    "BAÑO":            "Baño / Sanitario",
-    "PASILLO":         "Pasillo / Corredor",
-    "ESCALERA":        "Escalera",
-    "ASCENSOR":        "Ascensor",
-    "SALA_SERVIDORES": "Sala de Servidores",
-    "DEPOSITO":        "Depósito",
-    "COMEDOR":         "Comedor",
-    "CAFETERIA":       "Cafetería",
-    "BIBLIOTECA":      "Biblioteca",
-    "AUDITORIO":       "Auditorio",
-    "SALA_REUNION":    "Sala de Reuniones",
-    "CARPINTERIA":     "Carpintería (puerta/ventana)",
-    "VENTANA":         "Ventana",
-    "MOBILIARIO":      "Mobiliario",
-    "EQUIPO":          "Equipo",
-    "PROYECCION":      "Proyección",
-    "TEXTO":           "Texto / Rótulo",
-    "COTA":            "Cota / Dimensión",
-    "DEFAULT":         "Elemento general",
 }
 
 
@@ -170,6 +142,44 @@ def _poly_to_points(entity) -> list[tuple[float, float]]:
             return [(v.dxf.x, v.dxf.y) for v in entity.vertices]
         except Exception:
             return []
+
+
+def _is_point_in_polygon(x: float, y: float, poly: list[tuple[float, float]]) -> bool:
+    """Ray-casting point-in-polygon para asociación espacial de textos a áreas."""
+    n = len(poly)
+    if n < 3:
+        return False
+    inside = False
+    p1x, p1y = poly[0]
+    for i in range(n + 1):
+        p2x, p2y = poly[i % n]
+        if y > min(p1y, p2y):
+            if y <= max(p1y, p2y):
+                if x <= max(p1x, p2x):
+                    if p1y != p2y:
+                        xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                    if p1x == p2x or x <= xinters:
+                        inside = not inside
+        p1x, p1y = p2x, p2y
+    return inside
+
+
+def _calculate_area_and_perimeter(pts: list[tuple[float, float]]) -> tuple[float, float]:
+    """Calcula área en m² y perímetro en metros mediante Shoelace."""
+    n = len(pts)
+    if n < 3:
+        return 0.0, 0.0
+    area = 0.0
+    perimeter = 0.0
+    for i in range(n):
+        j = (i + 1) % n
+        area += pts[i][0] * pts[j][1]
+        area -= pts[j][0] * pts[i][1]
+        dx = pts[j][0] - pts[i][0]
+        dy = pts[j][1] - pts[i][1]
+        perimeter += math.sqrt(dx * dx + dy * dy)
+    area = abs(area) / 2.0
+    return area, perimeter
 
 
 @dataclass
@@ -201,7 +211,6 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
     if not EZDXF_AVAILABLE:
         raise RuntimeError("ezdxf no está instalado. Ejecuta: pip install ezdxf")
 
-    # Escribir a archivo temporal — más robusto que streams
     doc = None
     last_error: Exception | None = None
     with tempfile.NamedTemporaryFile(suffix=".dxf", delete=False) as tmp:
@@ -263,7 +272,6 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
     global_maxx = max(p[0] for p in all_points)
     global_maxy = max(p[1] for p in all_points)
 
-    # Margen del 2%
     margin_x = (global_maxx - global_minx) * 0.02
     margin_y = (global_maxy - global_miny) * 0.02
     global_minx -= margin_x
@@ -274,23 +282,22 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
     width  = max(global_maxx - global_minx, 1.0)
     height = max(global_maxy - global_miny, 1.0)
 
-    # stroke-width proporcional: ~0.15% del ancho del plano → siempre visible
-    base_sw = width * 0.0015
-    wall_sw  = base_sw * 2.5
-    thin_sw  = base_sw * 0.8
-    # font-size proporcional
+    # Grosor de línea base ultra delgado (0.75px con vector-effect)
+    base_sw = 0.75
+    wall_sw  = 1.25
+    thin_sw  = 0.50
     font_size = width * 0.008
 
     def tx(x: float) -> float:
         return x - global_minx
 
     def ty(y: float) -> float:
-        return height - (y - global_miny)  # invertir Y
+        return height - (y - global_miny)
 
-    # ── Segunda pasada: generar elementos SVG agrupados por z-order ───────────
-    # Acumulamos por z para pintar en orden correcto (muros encima de áreas)
     layers_z: dict[int, list[str]] = {}
     entities: list[DxfEntity] = []
+    text_points: list[tuple[float, float, str]] = []
+    polygon_entities: list[tuple[int, list[tuple[float, float]], DxfEntity]] = []
     entity_idx = 0
 
     def add_svg(z: int, elem: str) -> None:
@@ -307,7 +314,6 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
         z       = style["z"]
         elem_id = f"e{entity_idx}"
 
-        # Calcular stroke-width según tipo
         if tipo == "PARED":
             sw = wall_sw
         elif tipo in ("TEXTO", "COTA"):
@@ -316,13 +322,15 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
             sw = base_sw
 
         try:
-            if etype == "LWPOLYLINE":
+            if etype in ("LWPOLYLINE", "POLYLINE"):
                 pts = _poly_to_points(entity)
                 if len(pts) < 2:
                     continue
                 is_closed = bool(getattr(entity, "closed", False) or
                                  getattr(entity.dxf, "flags", 0) & 1)
-                # Si es AREA/recinto cerrado → rellenar
+                
+                area_m2, perim_m = _calculate_area_and_perimeter(pts) if is_closed else (0.0, 0.0)
+
                 if is_closed and tipo in (
                     "AREA","SALA","LABORATORIO","OFICINA","BAÑO","PASILLO",
                     "ESCALERA","ASCENSOR","SALA_SERVIDORES","DEPOSITO",
@@ -335,21 +343,28 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
                     tag = "polygon" if is_closed else "polyline"
 
                 pts_str = " ".join(f"{tx(p[0]):.2f},{ty(p[1]):.2f}" for p in pts)
+                
+                # vector-effect="non-scaling-stroke" garantiza líneas ultrafinas y nítidas
                 elem = (
                     f'<{tag} id="{elem_id}" data-layer="{layer}" data-tipo="{tipo}" '
+                    f'data-area="{area_m2:.1f}" '
                     f'points="{pts_str}" fill="{svg_fill}" stroke="{stroke}" '
-                    f'stroke-width="{sw:.3f}" opacity="{opacity}" '
+                    f'stroke-width="{sw:.2f}" vector-effect="non-scaling-stroke" opacity="{opacity}" '
                     f'stroke-linejoin="round" class="dxf-entity" />'
                 )
                 add_svg(z, elem)
 
                 xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
-                entities.append(DxfEntity(
+                ent = DxfEntity(
                     tipo=tipo, nombre=None, capa=layer,
                     x=min(xs), y=min(ys),
                     ancho=max(xs)-min(xs), alto=max(ys)-min(ys),
                     svg_element=elem_id,
-                ))
+                    metadata={"area_m2": round(area_m2, 2), "perimetro_m": round(perim_m, 2)},
+                )
+                entities.append(ent)
+                if is_closed and len(pts) >= 3:
+                    polygon_entities.append((len(entities) - 1, pts, ent))
 
             elif etype == "LINE":
                 s = entity.dxf.start
@@ -358,7 +373,7 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
                     f'<line id="{elem_id}" data-layer="{layer}" data-tipo="{tipo}" '
                     f'x1="{tx(s.x):.2f}" y1="{ty(s.y):.2f}" '
                     f'x2="{tx(e_pt.x):.2f}" y2="{ty(e_pt.y):.2f}" '
-                    f'stroke="{stroke}" stroke-width="{sw:.3f}" opacity="{opacity}" '
+                    f'stroke="{stroke}" stroke-width="{sw:.2f}" vector-effect="non-scaling-stroke" opacity="{opacity}" '
                     f'class="dxf-entity" />'
                 )
                 add_svg(z, elem)
@@ -375,7 +390,7 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
                 elem = (
                     f'<circle id="{elem_id}" data-layer="{layer}" data-tipo="{tipo}" '
                     f'cx="{tx(cx_d):.2f}" cy="{ty(cy_d):.2f}" r="{r:.2f}" '
-                    f'fill="{fill}" stroke="{stroke}" stroke-width="{sw:.3f}" '
+                    f'fill="{fill}" stroke="{stroke}" stroke-width="{sw:.2f}" vector-effect="non-scaling-stroke" '
                     f'opacity="{opacity}" class="dxf-entity" />'
                 )
                 add_svg(z, elem)
@@ -401,7 +416,7 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
                 elem = (
                     f'<path id="{elem_id}" data-layer="{layer}" data-tipo="{tipo}" '
                     f'd="M {sx_:.2f} {sy_:.2f} A {r:.2f} {r:.2f} 0 {large} 0 {ex_:.2f} {ey_:.2f}" '
-                    f'fill="none" stroke="{stroke}" stroke-width="{sw:.3f}" '
+                    f'fill="none" stroke="{stroke}" stroke-width="{sw:.2f}" vector-effect="non-scaling-stroke" '
                     f'opacity="{opacity}" class="dxf-entity" />'
                 )
                 add_svg(z, elem)
@@ -411,11 +426,31 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
                     svg_element=elem_id,
                 ))
 
+            elif etype == "INSERT":
+                # Bloque de mobiliario o equipamiento (escritorio, silla, ventana, etc.)
+                ip = entity.dxf.insert
+                block_name = getattr(entity.dxf, "name", "BLOQUE")
+                block_tipo = "MOBILIARIO" if "mueble" in layer.lower() or "furn" in layer.lower() else (
+                    "CARPINTERIA" if "door" in layer.lower() or "puerta" in layer.lower() else "EQUIPO"
+                )
+                elem = (
+                    f'<rect id="{elem_id}" data-layer="{layer}" data-tipo="{block_tipo}" '
+                    f'data-texto="{block_name}" '
+                    f'x="{tx(ip.x)-1.5:.2f}" y="{ty(ip.y)-1.5:.2f}" width="3" height="3" '
+                    f'fill="#38bdf8" stroke="#0284c7" stroke-width="0.75" vector-effect="non-scaling-stroke" '
+                    f'rx="0.5" class="dxf-entity dxf-block" />'
+                )
+                add_svg(5, elem)
+                entities.append(DxfEntity(
+                    tipo=block_tipo, nombre=block_name, capa=layer,
+                    x=ip.x, y=ip.y, ancho=3.0, alto=3.0,
+                    svg_element=elem_id, metadata={"bloque": block_name},
+                ))
+
             elif etype == "TEXT":
                 ip = entity.dxf.insert
                 txt = (entity.dxf.text or "").strip()
                 h = getattr(entity.dxf, "height", font_size) or font_size
-                # Escalar texto para que sea legible
                 display_h = max(h, font_size * 0.5)
                 if txt:
                     elem = (
@@ -432,6 +467,7 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
                         x=ip.x, y=ip.y, ancho=len(txt)*display_h*0.6, alto=display_h,
                         svg_element=elem_id, metadata={"texto": txt[:200]},
                     ))
+                    text_points.append((ip.x, ip.y, txt[:200]))
 
             elif etype == "MTEXT":
                 ip = entity.dxf.insert
@@ -458,6 +494,7 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
                         x=ip.x, y=ip.y, ancho=50, alto=display_h,
                         svg_element=elem_id, metadata={"texto": txt[:200]},
                     ))
+                    text_points.append((ip.x, ip.y, txt[:200]))
 
         except Exception:
             entity_idx += 1
@@ -465,7 +502,18 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
 
         entity_idx += 1
 
-    # ── Construir SVG final ordenado por z ─────────────────────────────────────
+    # ── Segunda pasada v2.0: Asociación Espacial Texto-Polígono ───────────────
+    # Vincular textos que están dentro de polígonos para nombrarlos automáticamente
+    for _, poly_pts, ent in polygon_entities:
+        for tx_x, tx_y, text_val in text_points:
+            if _is_point_in_polygon(tx_x, tx_y, poly_pts):
+                if not ent.nombre:
+                    ent.nombre = text_val
+                    ent.metadata["texto_asociado"] = text_val
+                elif text_val not in ent.nombre:
+                    ent.metadata.setdefault("otros_textos", []).append(text_val)
+
+    # ── Construir SVG final ───────────────────────────────────────────────────
     svg_parts: list[str] = []
     for z_level in sorted(layers_z.keys()):
         group_elems = "\n".join(layers_z[z_level])
@@ -474,7 +522,7 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
     vb = f"0 0 {width:.2f} {height:.2f}"
     svg = (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{vb}" '
-        f'width="100%" height="100%" style="background:#f8fafc">'
+        f'width="100%" height="100%" style="background:transparent">'
         + "\n".join(svg_parts)
         + "</svg>"
     )

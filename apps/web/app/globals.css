@@ -68,26 +68,38 @@
   }
 }
 
-/* ── Visor DXF Adaptable a Tema Claro y Oscuro ───────────────────────── */
+/* ── Visor DXF v2.0: Líneas Ultrafinas y Resaltado Fino ────────────────── */
 
 .dxf-viewer {
   cursor: grab;
   user-select: none;
   background-color: #f1f5f9; /* Fondo CAD claro tipo Blueprint */
-  background-image: radial-gradient(rgba(0, 0, 0, 0.06) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(0, 0, 0, 0.05) 1px, transparent 1px);
   background-size: 20px 20px;
   transition: background-color 0.3s ease;
 }
 
 .dark .dxf-viewer {
   background-color: #09090b; /* Fondo CAD oscuro Midnight */
-  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
   background-size: 20px 20px;
 }
 
-/* Transición suave para todos los elementos del SVG al cambiar de tema */
 .dxf-viewer svg {
   background-color: transparent !important;
+}
+
+/* Forzar que todos los trazos vectoriales mantengan líneas ultrafinas constantes (0.75px) */
+.dxf-viewer svg path,
+.dxf-viewer svg line,
+.dxf-viewer svg polyline,
+.dxf-viewer svg polygon,
+.dxf-viewer svg rect,
+.dxf-viewer svg circle,
+.dxf-viewer svg ellipse {
+  vector-effect: non-scaling-stroke !important;
+  stroke-width: 0.75px;
+  transition: stroke 0.2s ease, fill 0.2s ease, filter 0.2s ease;
 }
 
 .dxf-viewer svg text {
@@ -96,17 +108,7 @@
   transition: fill 0.3s ease;
 }
 
-.dxf-viewer svg path,
-.dxf-viewer svg line,
-.dxf-viewer svg polyline,
-.dxf-viewer svg polygon,
-.dxf-viewer svg rect,
-.dxf-viewer svg circle,
-.dxf-viewer svg ellipse {
-  transition: stroke 0.3s ease, fill 0.3s ease;
-}
-
-/* ── Adaptación de colores SVG en MODO CLARO ─────────────────────────── */
+/* Modo Claro: Inversión inteligente de trazos claros a oscuros nítidos */
 :not(.dark) .dxf-viewer svg [stroke="#ffffff"],
 :not(.dark) .dxf-viewer svg [stroke="#FFF"],
 :not(.dark) .dxf-viewer svg [stroke="white"],
@@ -121,7 +123,7 @@
   fill: #f8fafc !important;
 }
 
-/* ── Adaptación de colores SVG en MODO OSCURO ────────────────────────── */
+/* Modo Oscuro: Inversión inteligente de trazos oscuros a brillantes */
 .dark .dxf-viewer svg [stroke="#000000"],
 .dark .dxf-viewer svg [stroke="#000"],
 .dark .dxf-viewer svg [stroke="black"],
@@ -141,22 +143,33 @@
   font-weight: 600;
 }
 
-/* ── Interacción con entidades DXF ──────────────────────────────────── */
+/* ── Entidades DXF: Interacción y Resaltado Fino v2.0 ───────────────── */
+
 .dxf-entity {
   transition: all 0.15s ease-in-out;
   cursor: pointer;
   pointer-events: all;
 }
 
+/* Hover: Iluminación sutil */
 .dxf-entity:hover {
-  opacity: 0.9;
-  filter: brightness(1.2) drop-shadow(0 0 6px rgba(59, 130, 246, 0.7));
+  opacity: 0.95;
   stroke: #3b82f6 !important;
-  stroke-width: 2px !important;
+  stroke-width: 1.0px !important;
+  filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.5));
 }
 
+/* Selección Fina v2.0: Tinte traslúcido + Contorno fino azul constante (1.2px) */
 .dxf-entity.selected {
-  filter: brightness(1.3) drop-shadow(0 0 8px rgba(234, 179, 8, 0.9));
-  stroke: #eab308 !important;
-  stroke-width: 2.5px !important;
+  fill: rgba(59, 130, 246, 0.20) !important;
+  stroke: #2563eb !important;
+  stroke-width: 1.2px !important;
+  filter: drop-shadow(0 0 6px rgba(37, 99, 235, 0.6)) !important;
+}
+
+.dark .dxf-entity.selected {
+  fill: rgba(96, 165, 250, 0.25) !important;
+  stroke: #60a5fa !important;
+  stroke-width: 1.2px !important;
+  filter: drop-shadow(0 0 6px rgba(96, 165, 250, 0.7)) !important;
 }

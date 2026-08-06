@@ -72,16 +72,27 @@ export function DxfViewer() {
   }, [activePiso, getSvgDimensions]);
 
   // Centrar cuando cambia el piso y escuchar resize del contenedor
+  // Sincronizar clase .selected en el SVG dinámicamente con el store
   useEffect(() => {
-    if (!activePiso?.svg_data) return;
-    fitToContainer();
+    if (!svgWrapperRef.current) return;
+    svgWrapperRef.current
+      .querySelectorAll(".dxf-entity.selected")
+      .forEach((el) => el.classList.remove("selected"));
 
-    const el = containerRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver(() => fitToContainer());
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [activePiso?.id, fitToContainer]);
+    if (!selectedItem) return;
+
+    let svgElemId = selectedItem.id;
+    if (selectedItem.metadata_extra) {
+      try {
+        const meta = JSON.parse(selectedItem.metadata_extra);
+        if (meta.svg_element) svgElemId = meta.svg_element;
+      } catch {}
+    }
+    const targetElem = svgWrapperRef.current.querySelector(`#${svgElemId}`);
+    if (targetElem) {
+      targetElem.classList.add("selected");
+    }
+  }, [selectedItem]);
 
   // ── Pan ──────────────────────────────────────────────────────────────────
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Layers, MapPin, Ruler, Edit3, Save, Check, Loader2 } from "lucide-react";
+import { X, Layers, MapPin, Ruler, Edit3, Save, Check, Loader2, Tag } from "lucide-react";
 import { useInfrastructureStore } from "@/lib/stores/infrastructure-store";
 import { cn } from "@/lib/utils";
 
@@ -366,17 +366,35 @@ export function ItemInfoPopup() {
             </div>
           )}
 
-          {/* Dimensiones y Área */}
-          {hasDims && (
+          {/* Dimensiones, Área m² y Perímetro v2.0 */}
+          {(hasDims || metadata.area_m2) && (
+            <div className="space-y-1 bg-zinc-50 dark:bg-zinc-900/60 p-2 rounded-lg border border-zinc-200 dark:border-zinc-800">
+              <div className="flex items-center justify-between text-zinc-600 dark:text-zinc-400">
+                <div className="flex items-center gap-1.5">
+                  <Ruler className="w-3.5 h-3.5 shrink-0 text-zinc-400 dark:text-zinc-500" />
+                  <span className="font-semibold text-zinc-700 dark:text-zinc-300">Área Calculada:</span>
+                </div>
+                <span className="text-zinc-900 dark:text-zinc-100 font-bold bg-blue-100 dark:bg-blue-950/80 text-blue-900 dark:text-blue-200 px-2 py-0.5 rounded border border-blue-300 dark:border-blue-800 text-xs">
+                  {metadata.area_m2 ? `${metadata.area_m2} m²` : `${area} m²`}
+                </span>
+              </div>
+
+              {metadata.perimetro_m && (
+                <div className="flex items-center justify-between text-zinc-500 dark:text-zinc-400 text-[11px]">
+                  <span>Perímetro:</span>
+                  <span className="font-mono font-semibold text-zinc-800 dark:text-zinc-200">{metadata.perimetro_m} m</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Bloque / Mueble detectado */}
+          {metadata.bloque && (
             <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
-              <Ruler className="w-3.5 h-3.5 shrink-0 text-zinc-400 dark:text-zinc-500" />
-              <span className="font-medium">
-                {(selectedItem.ancho ?? 0).toFixed(0)} × {(selectedItem.alto ?? 0).toFixed(0)} mm
-                {area && area !== "0.00" && (
-                  <span className="ml-1.5 text-zinc-900 dark:text-zinc-100 font-bold bg-zinc-100 dark:bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-800">
-                    ~{area} m²
-                  </span>
-                )}
+              <Tag className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+              <span className="font-medium">Bloque CAD:</span>
+              <span className="font-mono bg-amber-50 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded text-xs font-bold">
+                {metadata.bloque}
               </span>
             </div>
           )}
