@@ -27,16 +27,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — necesario para que el frontend Next.js (localhost:3000) consuma la API
+# CORS — necesario para que el frontend Next.js consuma la API sin importar el origen u Host
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+app.include_router(api_router, prefix="/v1")
+app.include_router(api_router, prefix="/api")
 
 
 @app.get("/")

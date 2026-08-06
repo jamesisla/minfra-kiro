@@ -111,18 +111,22 @@ export function SidebarNav() {
     if (!deletingItem || !authToken) return;
     setActionLoading(true);
     try {
-      if (deletingItem.type === "sede") {
-        await apiClient.delete(`/api/v1/infrastructure/sedes/${deletingItem.id}`, {
-          token: authToken,
-        });
-      } else if (deletingItem.type === "edificio") {
-        await apiClient.delete(`/api/v1/infrastructure/edificios/${deletingItem.id}`, {
-          token: authToken,
-        });
-      } else if (deletingItem.type === "piso") {
-        await apiClient.delete(`/api/v1/infrastructure/pisos/${deletingItem.id}`, {
-          token: authToken,
-        });
+      const pathSegment =
+        deletingItem.type === "sede"
+          ? `/infrastructure/sedes/${deletingItem.id}`
+          : deletingItem.type === "edificio"
+          ? `/infrastructure/edificios/${deletingItem.id}`
+          : `/infrastructure/pisos/${deletingItem.id}`;
+
+      try {
+        await apiClient.delete(`/api/v1${pathSegment}`, { token: authToken });
+      } catch (firstErr) {
+        // Fallback en caso de que Nginx redireccione o elimine /v1 del path
+        try {
+          await apiClient.delete(`/api${pathSegment}`, { token: authToken });
+        } catch (secondErr) {
+          throw firstErr;
+        }
       }
       await refreshTree();
       setDeletingItem(null);
