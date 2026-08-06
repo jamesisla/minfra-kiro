@@ -112,10 +112,6 @@ class InfrastructureService:
         return SedeRead.model_validate(sede)
 
     async def delete_sede(self, sede_id: uuid.UUID) -> None:
-        sede = await self.sede_repo.get(sede_id)
-        if not sede:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sede no encontrada")
-
         stmt_edificios = select(Edificio.id).where(Edificio.sede_id == sede_id)
         edificio_ids = list((await self.db.scalars(stmt_edificios)).all())
 
@@ -161,10 +157,6 @@ class InfrastructureService:
         return EdificioRead.model_validate(edificio)
 
     async def delete_edificio(self, edificio_id: uuid.UUID) -> None:
-        edificio = await self.edificio_repo.get(edificio_id)
-        if not edificio:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Edificio no encontrado")
-
         stmt_pisos = select(Piso.id).where(Piso.edificio_id == edificio_id)
         piso_ids = list((await self.db.scalars(stmt_pisos)).all())
 
@@ -204,10 +196,6 @@ class InfrastructureService:
         return PisoRead.model_validate(piso)
 
     async def delete_piso(self, piso_id: uuid.UUID) -> None:
-        piso = await self.piso_repo.get(piso_id)
-        if not piso:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Piso no encontrado")
-
         await self.db.execute(delete(PlanoItem).where(PlanoItem.piso_id == piso_id))
         await self.db.execute(delete(Piso).where(Piso.id == piso_id))
         await self.db.commit()
