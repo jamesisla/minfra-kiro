@@ -58,7 +58,7 @@ export function DxfViewer() {
     });
   }, []);
 
-  // Ocultar/mostrar elementos SVG dinámicamente según hiddenTypes
+  // Ocultar/mostrar elementos SVG dinámicamente según hiddenTypes y deshabilitar interacción
   useEffect(() => {
     if (!svgWrapperRef.current) return;
     const elements = svgWrapperRef.current.querySelectorAll<SVGElement>("[data-tipo], [data-layer]");
@@ -68,11 +68,28 @@ export function DxfViewer() {
       const isHidden = (tipo && hiddenTypes.has(tipo)) || (layer && hiddenTypes.has(layer));
       if (isHidden) {
         el.style.display = "none";
+        el.style.pointerEvents = "none";
+        if (el.classList.contains("selected")) {
+          el.classList.remove("selected");
+        }
       } else {
         el.style.display = "";
+        el.style.pointerEvents = "";
       }
     });
-  }, [hiddenTypes, activePiso]);
+
+    // Limpiar selección activa si pertenece a una capa recién ocultada
+    if (selectedItem) {
+      const itemTipo = selectedItem.tipo;
+      const itemCapa = selectedItem.capa;
+      if (
+        (itemTipo && hiddenTypes.has(itemTipo)) ||
+        (itemCapa && hiddenTypes.has(itemCapa))
+      ) {
+        clearSelectedItem();
+      }
+    }
+  }, [hiddenTypes, activePiso, selectedItem, clearSelectedItem]);
 
   // Pan state
   const isPanning = useRef(false);
@@ -212,6 +229,17 @@ export function DxfViewer() {
       const layerName = entity.getAttribute("data-layer") ?? "";
       const entityType = entity.getAttribute("data-tipo") ?? entity.getAttribute("data-type") ?? "";
       const textContent = entity.getAttribute("data-texto") ?? entity.textContent ?? "";
+
+      // Si la entidad pertenece a una capa deshabilitada/oculta, ignorar el clic
+      if (
+        (entityType && hiddenTypes.has(entityType)) ||
+        (layerName && hiddenTypes.has(layerName)) ||
+        entity.style.display === "none" ||
+        entity.style.pointerEvents === "none"
+      ) {
+        clearSelectedItem();
+        return;
+      }
 
       // Quitar selección anterior
       svgWrapperRef.current
