@@ -122,10 +122,37 @@ export const useInfrastructureStore = create<InfrastructureState>((set, get) => 
     set({ treeLoading: true, treeError: null });
     try {
       const data = await apiClient.get<InfrastructureTree>("/api/v1/infrastructure/tree", { token });
-      set({ tree: data, treeLoading: false });
+      
+      // Validar si los elementos seleccionados previamente aún existen en la base de datos
+      const currentState = get();
+      let sedeStillExists = false;
+      let edificioStillExists = false;
+      let pisoStillExists = false;
+
+      if (data && Array.isArray(data.sedes)) {
+        for (const s of data.sedes) {
+          if (s.id === currentState.selectedSedeId) sedeStillExists = true;
+          for (const e of s.edificios || []) {
+            if (e.id === currentState.selectedEdificioId) edificioStillExists = true;
+            for (const p of e.pisos || []) {
+              if (p.id === currentState.selectedPisoId) pisoStillExists = true;
+            }
+          }
+        }
+      }
+
+      set({
+        tree: data,
+        treeLoading: false,
+        selectedSedeId: sedeStillExists ? currentState.selectedSedeId : null,
+        selectedEdificioId: edificioStillExists ? currentState.selectedEdificioId : null,
+        selectedPisoId: pisoStillExists ? currentState.selectedPisoId : null,
+        activePiso: pisoStillExists ? currentState.activePiso : null,
+        selectedItem: pisoStillExists ? currentState.selectedItem : null,
+      });
 
       // Auto-expandir la primera sede si hay sólo una
-      if (data.sedes.length === 1) {
+      if (data.sedes && data.sedes.length === 1) {
         set({ expandedSedes: new Set([data.sedes[0].id]) });
       }
     } catch (err) {
