@@ -33,5 +33,6 @@ pnpm build
 echo "🔄 Reiniciando servicios..."
 pm2 restart all || true
 sudo systemctl restart sdd-api
+sudo systemctl reload nginx || true
 
 echo "✅ ¡Despliegue completado exitosamente!"
