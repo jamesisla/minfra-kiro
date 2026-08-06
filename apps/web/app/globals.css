@@ -52,7 +52,6 @@
     @apply bg-background text-foreground;
   }
 
-  /* Scrollbar minimalista */
   ::-webkit-scrollbar {
     width: 5px;
     height: 5px;
@@ -68,19 +67,19 @@
   }
 }
 
-/* ── Visor DXF v2.0: Líneas Ultrafinas y Resaltado Fino ────────────────── */
+/* ── Visor DXF v2.0: Trazado Ultrafino Estilo LibreCAD ───────────────────── */
 
 .dxf-viewer {
   cursor: grab;
   user-select: none;
-  background-color: #f1f5f9; /* Fondo CAD claro tipo Blueprint */
+  background-color: #f8fafc;
   background-image: radial-gradient(rgba(0, 0, 0, 0.05) 1px, transparent 1px);
   background-size: 20px 20px;
   transition: background-color 0.3s ease;
 }
 
 .dark .dxf-viewer {
-  background-color: #09090b; /* Fondo CAD oscuro Midnight */
+  background-color: #09090b; /* Fondo CAD estilo LibreCAD */
   background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
   background-size: 20px 20px;
 }
@@ -89,7 +88,7 @@
   background-color: transparent !important;
 }
 
-/* Forzar que todos los trazos vectoriales mantengan líneas ultrafinas constantes (0.75px) */
+/* FORZAR que ABSOLUTAMENTE TODOS los trazos vectoriales sean líneas ultrafinas de 0.5px */
 .dxf-viewer svg path,
 .dxf-viewer svg line,
 .dxf-viewer svg polyline,
@@ -98,8 +97,17 @@
 .dxf-viewer svg circle,
 .dxf-viewer svg ellipse {
   vector-effect: non-scaling-stroke !important;
-  stroke-width: 0.75px;
-  transition: stroke 0.2s ease, fill 0.2s ease, filter 0.2s ease;
+  stroke-width: 0.5px !important;
+}
+
+/* FORZAR RELLENO TRANSPARENTE: Ningún elemento tiene relleno opaco (elimina bloques azules) */
+.dxf-viewer svg polygon:not(.selected),
+.dxf-viewer svg polyline:not(.selected),
+.dxf-viewer svg path:not(.selected),
+.dxf-viewer svg rect:not(.selected),
+.dxf-viewer svg circle:not(.selected),
+.dxf-viewer svg ellipse:not(.selected) {
+  fill: transparent !important;
 }
 
 .dxf-viewer svg text {
@@ -108,22 +116,7 @@
   transition: fill 0.3s ease;
 }
 
-/* Modo Claro: Inversión inteligente de trazos claros a oscuros nítidos */
-:not(.dark) .dxf-viewer svg [stroke="#ffffff"],
-:not(.dark) .dxf-viewer svg [stroke="#FFF"],
-:not(.dark) .dxf-viewer svg [stroke="white"],
-:not(.dark) .dxf-viewer svg [stroke="#f8fafc"],
-:not(.dark) .dxf-viewer svg [stroke="#f1f5f9"] {
-  stroke: #1e293b !important;
-}
-
-:not(.dark) .dxf-viewer svg [fill="#ffffff"],
-:not(.dark) .dxf-viewer svg [fill="#FFF"],
-:not(.dark) .dxf-viewer svg [fill="white"] {
-  fill: #f8fafc !important;
-}
-
-/* Modo Oscuro: Inversión inteligente de trazos oscuros a brillantes */
+/* Modo Oscuro: trazos brillantes sobre fondo CAD oscuro */
 .dark .dxf-viewer svg [stroke="#000000"],
 .dark .dxf-viewer svg [stroke="#000"],
 .dark .dxf-viewer svg [stroke="black"],
@@ -132,44 +125,38 @@
   stroke: #e2e8f0 !important;
 }
 
-.dark .dxf-viewer svg [fill="#000000"],
-.dark .dxf-viewer svg [fill="#000"],
-.dark .dxf-viewer svg [fill="black"] {
-  fill: #18181b !important;
-}
-
 .dark .dxf-viewer svg text {
   fill: #f8fafc !important;
   font-weight: 600;
 }
 
-/* ── Entidades DXF: Interacción y Resaltado Fino v2.0 ───────────────── */
+/* ── Entidades DXF: Interacción y Selección Fina ────────────────────────── */
 
 .dxf-entity {
-  transition: all 0.15s ease-in-out;
+  transition: stroke 0.15s ease, fill 0.15s ease, filter 0.15s ease;
   cursor: pointer;
   pointer-events: all;
 }
 
-/* Hover: Iluminación sutil */
 .dxf-entity:hover {
-  opacity: 0.95;
   stroke: #3b82f6 !important;
   stroke-width: 1.0px !important;
-  filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.5));
+  filter: drop-shadow(0 0 3px rgba(59, 130, 246, 0.6));
 }
 
-/* Selección Fina v2.0: Tinte traslúcido + Contorno fino azul constante (1.2px) */
-.dxf-entity.selected {
-  fill: rgba(59, 130, 246, 0.20) !important;
+/* Selección Fina: ÚNICAMENTE la entidad seleccionada se ilumina en azul traslúcido */
+.dxf-entity.selected,
+.dxf-viewer svg .selected {
+  fill: rgba(59, 130, 246, 0.30) !important;
   stroke: #2563eb !important;
   stroke-width: 1.2px !important;
-  filter: drop-shadow(0 0 6px rgba(37, 99, 235, 0.6)) !important;
+  filter: drop-shadow(0 0 6px rgba(37, 99, 235, 0.7)) !important;
 }
 
-.dark .dxf-entity.selected {
-  fill: rgba(96, 165, 250, 0.25) !important;
-  stroke: #60a5fa !important;
+.dark .dxf-entity.selected,
+.dark .dxf-viewer svg .selected {
+  fill: rgba(56, 189, 248, 0.35) !important;
+  stroke: #38bdf8 !important;
   stroke-width: 1.2px !important;
-  filter: drop-shadow(0 0 6px rgba(96, 165, 250, 0.7)) !important;
+  filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.8)) !important;
 }

@@ -282,10 +282,10 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
     width  = max(global_maxx - global_minx, 1.0)
     height = max(global_maxy - global_miny, 1.0)
 
-    # Grosor de línea base ultra delgado (0.75px con vector-effect)
-    base_sw = 0.75
-    wall_sw  = 1.25
-    thin_sw  = 0.50
+    # Grosor de línea base ultra delgado (0.50px con vector-effect)
+    base_sw = 0.50
+    wall_sw  = 0.75
+    thin_sw  = 0.35
     font_size = width * 0.008
 
     def tx(x: float) -> float:
