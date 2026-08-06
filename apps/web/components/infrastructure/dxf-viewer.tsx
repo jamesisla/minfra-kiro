@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ZoomIn, ZoomOut, Maximize2, RotateCcw } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize2, RotateCcw, Eye, EyeOff, Layers } from "lucide-react";
 import { useInfrastructureStore, type PlanoItem } from "@/lib/stores/infrastructure-store";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +32,47 @@ export function DxfViewer() {
     translateY: 0,
   });
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
+
+  // Control de capas ocultas/visibles
+  const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
+
+  const toggleType = useCallback((tipo: string) => {
+    setHiddenTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(tipo)) {
+        next.delete(tipo);
+      } else {
+        next.add(tipo);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleAllTypes = useCallback((allTypes: string[]) => {
+    setHiddenTypes((prev) => {
+      if (prev.size === allTypes.length) {
+        return new Set(); // Mostrar todas
+      } else {
+        return new Set(allTypes); // Ocultar todas
+      }
+    });
+  }, []);
+
+  // Ocultar/mostrar elementos SVG dinámicamente según hiddenTypes
+  useEffect(() => {
+    if (!svgWrapperRef.current) return;
+    const elements = svgWrapperRef.current.querySelectorAll<SVGElement>("[data-tipo], [data-layer]");
+    elements.forEach((el) => {
+      const tipo = el.getAttribute("data-tipo");
+      const layer = el.getAttribute("data-layer");
+      const isHidden = (tipo && hiddenTypes.has(tipo)) || (layer && hiddenTypes.has(layer));
+      if (isHidden) {
+        el.style.display = "none";
+      } else {
+        el.style.display = "";
+      }
+    });
+  }, [hiddenTypes, activePiso]);
 
   // Pan state
   const isPanning = useRef(false);
@@ -374,8 +415,13 @@ export function DxfViewer() {
         )}
       </div>
 
-      {/* Leyenda de capas */}
-      <LayerLegend items={activePiso.items} />
+      {/* Leyenda de capas con control de visibilidad */}
+      <LayerLegend
+        items={activePiso.items}
+        hiddenTypes={hiddenTypes}
+        onToggleType={toggleType}
+        onToggleAll={toggleAllTypes}
+      />
 
       {/* Área del visor con fondo adaptable a tema claro/oscuro */}
       <div
@@ -438,7 +484,7 @@ function UploadIcon({ className }: { className?: string }) {
   );
 }
 
-// ── Leyenda de capas ──────────────────────────────────────────────────────────
+// ── Leyenda de capas con toggle de visibilidad ────────────────────────────────
 
 const LEGEND_COLORS: Record<string, string> = {
   PARED:           "#334155",
@@ -482,10 +528,17 @@ const TYPE_LABELS_SHORT: Record<string, string> = {
   TEXTO: "Textos", DEFAULT: "General",
 };
 
-function LayerLegend({ items }: { items: import("@/lib/stores/infrastructure-store").PlanoItem[] }) {
+interface LayerLegendProps {
+  items: import("@/lib/stores/infrastructure-store").PlanoItem[];
+  hiddenTypes: Set<string>;
+  onToggleType: (tipo: string) => void;
+  onToggleAll: (allTypes: string[]) => void;
+}
+
+function LayerLegend({ items, hiddenTypes, onToggleType, onToggleAll }: LayerLegendProps) {
   const [open, setOpen] = useState(true);
 
-  // Contar tipos únicos presentes (excluir TEXTO y DEFAULT si son muchos)
+  // Contar tipos únicos presentes (excluir COTA si son muchas)
   const typeCounts = items.reduce<Record<string, number>>((acc, item) => {
     acc[item.tipo] = (acc[item.tipo] ?? 0) + 1;
     return acc;
@@ -497,34 +550,89 @@ function LayerLegend({ items }: { items: import("@/lib/stores/infrastructure-sto
 
   if (types.length === 0) return null;
 
+  const allTypeKeys = types.map(([t]) => t);
+  const allHidden = allTypeKeys.every((t) => hiddenTypes.has(t));
+
   return (
-    <div className="absolute bottom-10 left-3 z-20 bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl backdrop-blur-md max-w-[210px] text-zinc-900 dark:text-zinc-100">
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors rounded-xl"
-      >
-        <span>Capas ({types.length})</span>
-        <span className="text-zinc-400 dark:text-zinc-500 text-[10px]">{open ? "▲" : "▼"}</span>
-      </button>
+    <div className="absolute bottom-10 left-3 z-20 bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl backdrop-blur-md min-w-[210px] max-w-[240px] text-zinc-900 dark:text-zinc-100">
+      <div className="flex items-center justify-between px-3 py-2 text-xs font-bold border-b border-zinc-100 dark:border-zinc-800/80">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="flex items-center gap-1.5 hover:text-primary transition-colors"
+        >
+          <Layers className="w-3.5 h-3.5 text-primary" />
+          <span>Capas ({types.length})</span>
+          <span className="text-zinc-400 dark:text-zinc-500 text-[10px]">{open ? "▲" : "▼"}</span>
+        </button>
+        {open && (
+          <button
+            onClick={() => onToggleAll(allTypeKeys)}
+            className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 hover:text-primary transition-colors"
+            title={allHidden ? "Mostrar todas las capas" : "Ocultar todas las capas"}
+          >
+            {allHidden ? "Mostrar todas" : "Ocultar todas"}
+          </button>
+        )}
+      </div>
+
       {open && (
-        <div className="px-2.5 pb-2.5 space-y-1 max-h-64 overflow-y-auto">
-          {types.map(([tipo, count]) => (
-            <div key={tipo} className="flex items-center gap-2 px-1.5 py-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors">
-              <span
-                className="w-3 h-3 rounded shrink-0 border shadow-sm"
-                style={{
-                  background: LEGEND_COLORS[tipo] ?? LEGEND_COLORS.DEFAULT,
-                  borderColor: LEGEND_BORDER[tipo] ?? LEGEND_BORDER.DEFAULT,
-                }}
-              />
-              <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 flex-1 truncate">
-                {TYPE_LABELS_SHORT[tipo] ?? tipo}
-              </span>
-              <span className="text-xs font-mono font-bold text-zinc-400 dark:text-zinc-500 tabular-nums">{count}</span>
-            </div>
-          ))}
+        <div className="px-2.5 py-2 space-y-1 max-h-64 overflow-y-auto">
+          {types.map(([tipo, count]) => {
+            const isHidden = hiddenTypes.has(tipo);
+            return (
+              <div
+                key={tipo}
+                onClick={() => onToggleType(tipo)}
+                className={cn(
+                  "flex items-center gap-2 px-2 py-1 rounded-lg cursor-pointer transition-all text-xs select-none",
+                  isHidden
+                    ? "opacity-45 hover:opacity-75 hover:bg-zinc-100 dark:hover:bg-zinc-800/40"
+                    : "hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
+                )}
+                title={isHidden ? `Mostrar ${TYPE_LABELS_SHORT[tipo] ?? tipo}` : `Ocultar ${TYPE_LABELS_SHORT[tipo] ?? tipo}`}
+              >
+                <span
+                  className={cn(
+                    "w-3 h-3 rounded shrink-0 border shadow-sm transition-opacity",
+                    isHidden ? "opacity-30 border-dashed" : "opacity-100"
+                  )}
+                  style={{
+                    background: LEGEND_COLORS[tipo] ?? LEGEND_COLORS.DEFAULT,
+                    borderColor: LEGEND_BORDER[tipo] ?? LEGEND_BORDER.DEFAULT,
+                  }}
+                />
+                <span
+                  className={cn(
+                    "font-semibold flex-1 truncate transition-all",
+                    isHidden
+                      ? "line-through text-zinc-400 dark:text-zinc-500"
+                      : "text-zinc-800 dark:text-zinc-200"
+                  )}
+                >
+                  {TYPE_LABELS_SHORT[tipo] ?? tipo}
+                </span>
+                <span className="text-xs font-mono font-bold text-zinc-400 dark:text-zinc-500 tabular-nums">
+                  {count}
+                </span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleType(tipo);
+                  }}
+                  className="p-0.5 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"
+                >
+                  {isHidden ? (
+                    <EyeOff className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
+                  ) : (
+                    <Eye className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
+                  )}
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
+
