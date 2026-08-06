@@ -98,31 +98,31 @@ LAYER_TYPE_MAP: list[tuple[str, str]] = [
 # ── Estilos visuales por tipo ──────────────────────────────────────────────────
 
 TYPE_STYLES: dict[str, dict] = {
-    "PARED":          {"fill": "none",    "stroke": "#1e293b", "opacity": 1.0,  "z": 10},
-    "COLUMNA":        {"fill": "#94a3b8", "stroke": "#475569", "opacity": 1.0,  "z": 10},
-    "AREA":           {"fill": "#f1f5f9", "stroke": "#cbd5e1", "opacity": 0.6,  "z": 1},
-    "SALA":           {"fill": "#dbeafe", "stroke": "#93c5fd", "opacity": 0.7,  "z": 2},
-    "LABORATORIO":    {"fill": "#d1fae5", "stroke": "#6ee7b7", "opacity": 0.7,  "z": 2},
-    "OFICINA":        {"fill": "#fef3c7", "stroke": "#fcd34d", "opacity": 0.7,  "z": 2},
-    "BAÑO":           {"fill": "#e0e7ff", "stroke": "#a5b4fc", "opacity": 0.7,  "z": 2},
-    "PASILLO":        {"fill": "#f3f4f6", "stroke": "#d1d5db", "opacity": 0.5,  "z": 1},
-    "ESCALERA":       {"fill": "#fce7f3", "stroke": "#f9a8d4", "opacity": 0.7,  "z": 2},
-    "ASCENSOR":       {"fill": "#ede9fe", "stroke": "#c4b5fd", "opacity": 0.7,  "z": 2},
-    "SALA_SERVIDORES":{"fill": "#fee2e2", "stroke": "#fca5a5", "opacity": 0.7,  "z": 2},
-    "DEPOSITO":       {"fill": "#fef9c3", "stroke": "#fde047", "opacity": 0.7,  "z": 2},
-    "COMEDOR":        {"fill": "#ffedd5", "stroke": "#fdba74", "opacity": 0.7,  "z": 2},
-    "CAFETERIA":      {"fill": "#ffedd5", "stroke": "#fdba74", "opacity": 0.7,  "z": 2},
-    "BIBLIOTECA":     {"fill": "#cffafe", "stroke": "#67e8f9", "opacity": 0.7,  "z": 2},
-    "AUDITORIO":      {"fill": "#f0fdf4", "stroke": "#86efac", "opacity": 0.7,  "z": 2},
-    "SALA_REUNION":   {"fill": "#fdf4ff", "stroke": "#e879f9", "opacity": 0.7,  "z": 2},
-    "CARPINTERIA":    {"fill": "#fed7aa", "stroke": "#fb923c", "opacity": 0.9,  "z": 8},
-    "VENTANA":        {"fill": "#bae6fd", "stroke": "#38bdf8", "opacity": 0.8,  "z": 8},
-    "MOBILIARIO":     {"fill": "#e2e8f0", "stroke": "#64748b", "opacity": 0.8,  "z": 5},
-    "EQUIPO":         {"fill": "#fde68a", "stroke": "#d97706", "opacity": 0.8,  "z": 5},
-    "PROYECCION":     {"fill": "none",    "stroke": "#94a3b8", "opacity": 0.4,  "z": 3},
-    "TEXTO":          {"fill": "#1e293b", "stroke": "none",    "opacity": 1.0,  "z": 15},
-    "COTA":           {"fill": "none",    "stroke": "#94a3b8", "opacity": 0.5,  "z": 4},
-    "DEFAULT":        {"fill": "none",    "stroke": "#64748b", "opacity": 0.6,  "z": 3},
+    "PARED":          {"fill": "transparent", "stroke": "#e2e8f0", "opacity": 1.0,  "z": 10},
+    "COLUMNA":        {"fill": "transparent", "stroke": "#cbd5e1", "opacity": 1.0,  "z": 10},
+    "AREA":           {"fill": "transparent", "stroke": "#64748b", "opacity": 0.5,  "z": 1},
+    "SALA":           {"fill": "transparent", "stroke": "#38bdf8", "opacity": 0.9,  "z": 2},
+    "LABORATORIO":    {"fill": "transparent", "stroke": "#34d399", "opacity": 0.9,  "z": 2},
+    "OFICINA":        {"fill": "transparent", "stroke": "#fbbf24", "opacity": 0.9,  "z": 2},
+    "BAÑO":           {"fill": "transparent", "stroke": "#818cf8", "opacity": 0.9,  "z": 2},
+    "PASILLO":        {"fill": "transparent", "stroke": "#64748b", "opacity": 0.5,  "z": 1},
+    "ESCALERA":       {"fill": "transparent", "stroke": "#f472b6", "opacity": 0.8,  "z": 2},
+    "ASCENSOR":       {"fill": "transparent", "stroke": "#c084fc", "opacity": 0.8,  "z": 2},
+    "SALA_SERVIDORES":{"fill": "transparent", "stroke": "#f87171", "opacity": 0.9,  "z": 2},
+    "DEPOSITO":       {"fill": "transparent", "stroke": "#facc15", "opacity": 0.8,  "z": 2},
+    "COMEDOR":        {"fill": "transparent", "stroke": "#fb923c", "opacity": 0.8,  "z": 2},
+    "CAFETERIA":      {"fill": "transparent", "stroke": "#fb923c", "opacity": 0.8,  "z": 2},
+    "BIBLIOTECA":     {"fill": "transparent", "stroke": "#22d3ee", "opacity": 0.8,  "z": 2},
+    "AUDITORIO":      {"fill": "transparent", "stroke": "#4ade80", "opacity": 0.8,  "z": 2},
+    "SALA_REUNION":   {"fill": "transparent", "stroke": "#e879f9", "opacity": 0.9,  "z": 2},
+    "CARPINTERIA":    {"fill": "transparent", "stroke": "#fb923c", "opacity": 0.9,  "z": 8},
+    "VENTANA":        {"fill": "transparent", "stroke": "#38bdf8", "opacity": 0.8,  "z": 8},
+    "MOBILIARIO":     {"fill": "transparent", "stroke": "#c084fc", "opacity": 0.9,  "z": 5},
+    "EQUIPO":         {"fill": "transparent", "stroke": "#facc15", "opacity": 0.9,  "z": 5},
+    "PROYECCION":     {"fill": "none",        "stroke": "#64748b", "opacity": 0.4,  "z": 3},
+    "TEXTO":          {"fill": "#f8fafc",     "stroke": "none",    "opacity": 1.0,  "z": 15},
+    "COTA":           {"fill": "none",        "stroke": "#64748b", "opacity": 0.5,  "z": 4},
+    "DEFAULT":        {"fill": "transparent", "stroke": "#94a3b8", "opacity": 0.7,  "z": 3},
 }
 
 
@@ -331,16 +331,9 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
                 
                 area_m2, perim_m = _calculate_area_and_perimeter(pts) if is_closed else (0.0, 0.0)
 
-                if is_closed and tipo in (
-                    "AREA","SALA","LABORATORIO","OFICINA","BAÑO","PASILLO",
-                    "ESCALERA","ASCENSOR","SALA_SERVIDORES","DEPOSITO",
-                    "COMEDOR","CAFETERIA","BIBLIOTECA","AUDITORIO","SALA_REUNION","PARED",
-                ):
-                    svg_fill = fill
-                    tag = "polygon"
-                else:
-                    svg_fill = fill if is_closed else "none"
-                    tag = "polygon" if is_closed else "polyline"
+                # Usar transparent para polígonos cerrados (permite click sin tapar el mapa)
+                svg_fill = "transparent" if is_closed else "none"
+                tag = "polygon" if is_closed else "polyline"
 
                 pts_str = " ".join(f"{tx(p[0]):.2f},{ty(p[1]):.2f}" for p in pts)
                 
