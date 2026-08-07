@@ -5,7 +5,7 @@
  * Permite pan, zoom y click en entidades para ver su información.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ZoomIn, ZoomOut, Maximize2, RotateCcw, Eye, EyeOff, Layers } from "lucide-react";
 import { useInfrastructureStore, type PlanoItem } from "@/lib/stores/infrastructure-store";
 import { cn } from "@/lib/utils";
@@ -58,27 +58,17 @@ export function DxfViewer() {
     });
   }, []);
 
-  // Ocultar/mostrar elementos SVG dinámicamente según hiddenTypes y deshabilitar interacción
-  useEffect(() => {
-    if (!svgWrapperRef.current) return;
-    const elements = svgWrapperRef.current.querySelectorAll<SVGElement>("[data-tipo], [data-layer]");
-    elements.forEach((el) => {
-      const tipo = el.getAttribute("data-tipo");
-      const layer = el.getAttribute("data-layer");
-      const isHidden = (tipo && hiddenTypes.has(tipo)) || (layer && hiddenTypes.has(layer));
-      if (isHidden) {
-        el.style.display = "none";
-        el.style.pointerEvents = "none";
-        if (el.classList.contains("selected")) {
-          el.classList.remove("selected");
-        }
-      } else {
-        el.style.display = "";
-        el.style.pointerEvents = "";
-      }
-    });
+  // Generar reglas CSS declarativas para capas ocultas (persisten nativamente durante zoom/pan)
+  const hiddenCss = useMemo(() => {
+    if (hiddenTypes.size === 0) return "";
+    const rules = Array.from(hiddenTypes).map(
+      (type) => `[data-tipo="${type.replace(/"/g, '\\"')}"], [data-layer="${type.replace(/"/g, '\\"')}"]`
+    );
+    return `${rules.join(",\n")} { display: none !important; pointer-events: none !important; }`;
+  }, [hiddenTypes]);
 
-    // Limpiar selección activa si pertenece a una capa recién ocultada
+  // Limpiar selección activa si pertenece a una capa recién ocultada
+  useEffect(() => {
     if (selectedItem) {
       const itemTipo = selectedItem.tipo;
       const itemCapa = selectedItem.capa;
@@ -89,7 +79,7 @@ export function DxfViewer() {
         clearSelectedItem();
       }
     }
-  }, [hiddenTypes, activePiso, selectedItem, clearSelectedItem]);
+  }, [hiddenTypes, selectedItem, clearSelectedItem]);
 
   // Pan state
   const isPanning = useRef(false);
@@ -487,6 +477,9 @@ export function DxfViewer() {
         onTouchEnd={onTouchEnd}
         onClick={handleSvgClick}
       >
+        {/* Reglas CSS para capas ocultas que persisten durante Pan/Zoom */}
+        {hiddenCss && <style dangerouslySetInnerHTML={{ __html: hiddenCss }} />}
+
         <div
           ref={svgWrapperRef}
           style={{
