@@ -50,6 +50,78 @@ def _infer_room_type_from_text(text_val: str) -> str | None:
     return None
 
 
+def _find_room_box_from_walls(
+    tx_x: float,
+    tx_y: float,
+    segments: list[tuple[tuple[float, float], tuple[float, float]]],
+    max_w: float,
+    max_h: float
+) -> list[tuple[float, float]] | None:
+    """
+    Reconstruye los límites de una sala u oficina lanzando rayos horizontales y verticales
+    hacia los muros circundantes desde el punto del texto.
+    """
+    offsets = [(0.0, 0.0), (0.2, 0.2), (-0.2, -0.2), (0.5, -0.5), (-0.5, 0.5)]
+    best_pts = None
+    best_area = float('inf')
+
+    for ox, oy in offsets:
+        cx, cy = tx_x + ox, tx_y + oy
+
+        min_left = float('inf')
+        min_right = float('inf')
+        min_down = float('inf')
+        min_up = float('inf')
+
+        for (x1, y1), (x2, y2) in segments:
+            # Rayo horizontal (cruza cy)
+            if (y1 <= cy <= y2 or y2 <= cy <= y1) and abs(y2 - y1) > 1e-6:
+                x_int = x1 + (cy - y1) * (x2 - x1) / (y2 - y1)
+                if x_int <= cx:
+                    dist = cx - x_int
+                    if dist < min_left:
+                        min_left = dist
+                if x_int >= cx:
+                    dist = x_int - cx
+                    if dist < min_right:
+                        min_right = dist
+
+            # Rayo vertical (cruza cx)
+            if (x1 <= cx <= x2 or x2 <= cx <= x1) and abs(x2 - x1) > 1e-6:
+                y_int = y1 + (cx - x1) * (y2 - y1) / (x2 - x1)
+                if y_int <= cy:
+                    dist = cy - y_int
+                    if dist < min_down:
+                        min_down = dist
+                if y_int >= cy:
+                    dist = y_int - cy
+                    if dist < min_up:
+                        min_up = dist
+
+        # Verificar que encontramos muros en las 4 direcciones dentro de límites de sala
+        if min_left < max_w and min_right < max_w and min_down < max_h and min_up < max_h:
+            x_min = cx - min_left
+            x_max = cx + min_right
+            y_min = cy - min_down
+            y_max = cy + min_up
+
+            w = x_max - x_min
+            h = y_max - y_min
+            area = w * h
+
+            if area > 1.0 and area < best_area:
+                best_area = area
+                best_pts = [
+                    (x_min, y_min),
+                    (x_max, y_min),
+                    (x_max, y_max),
+                    (x_min, y_max)
+                ]
+
+    return best_pts
+
+
+
 
 # ── Mapeo de capas a tipos semánticos ─────────────────────────────────────────
 
@@ -405,6 +477,7 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
     entities: list[DxfEntity] = []
     text_points: list[tuple[float, float, str]] = []
     polygon_records: list[PolygonEntityData] = []
+    wall_segments: list[tuple[tuple[float, float], tuple[float, float]]] = []
     entity_idx = 0
 
     def add_svg(z: int, elem: str) -> None:
@@ -433,9 +506,24 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
                 pts = _poly_to_points(entity)
                 if len(pts) < 2:
                     continue
+
+                # Acumular segmentos para reconstrucción espacial de salas
+                for i_seg in range(len(pts) - 1):
+                    wall_segments.append((pts[i_seg], pts[i_seg + 1]))
+
                 is_closed = bool(getattr(entity, "closed", False) or
                                  getattr(entity.dxf, "flags", 0) & 1)
                 
+                # Auto-cerrar polilíneas casi cerradas (extremos a menos de 2m o 2% del ancho)
+                if not is_closed and len(pts) >= 3:
+                    dx_c = pts[0][0] - pts[-1][0]
+                    dy_c = pts[0][1] - pts[-1][1]
+                    gap_c = math.sqrt(dx_c * dx_c + dy_c * dy_c)
+                    if gap_c <= max(width * 0.02, 2.0):
+                        is_closed = True
+                        if gap_c > 0:
+                            pts.append(pts[0])
+
                 area_m2, perim_m = _calculate_area_and_perimeter(pts) if is_closed else (0.0, 0.0)
 
                 xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
@@ -476,6 +564,7 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
             elif etype == "LINE":
                 s = entity.dxf.start
                 e_pt = entity.dxf.end
+                wall_segments.append(((s.x, s.y), (e_pt.x, e_pt.y)))
                 elem = (
                     f'<line id="{elem_id}" data-layer="{layer}" data-tipo="{tipo}" '
                     f'x1="{tx(s.x):.2f}" y1="{ty(s.y):.2f}" '
@@ -632,11 +721,55 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
             p for p in containing_polys
             if p.area_m2 < total_floor_area_m2 * 0.35
         ]
-        candidates = room_candidates if room_candidates else containing_polys
 
-        # Ordenar candidatos por área ASCENDENTE (el recinto más específico primero)
-        candidates.sort(key=lambda p: p.area_m2)
-        best_poly = candidates[0]
+        # Si no hay polígonos de sala contenedores y el texto es un recinto (ej. A202, A203, A210, etc.)
+        # reconstruir los límites exactos de la sala a partir de los muros circundantes (raycasting)
+        if not room_candidates and (ROOM_CODE_REGEX.match(clean_text) or _infer_room_type_from_text(clean_text)):
+            room_pts = _find_room_box_from_walls(
+                tx_x, tx_y, wall_segments,
+                max_w=max(width * 0.35, 30.0),
+                max_h=max(height * 0.35, 30.0)
+            )
+            if room_pts:
+                area_m2, perim_m = _calculate_area_and_perimeter(room_pts)
+                xs = [p[0] for p in room_pts]
+                ys = [p[1] for p in room_pts]
+                elem_id = f"e{entity_idx}"
+                entity_idx += 1
+
+                ent = DxfEntity(
+                    tipo="SALA",
+                    nombre=clean_text,
+                    capa="RECINTO_REINFERIDO",
+                    x=min(xs), y=min(ys),
+                    ancho=max(xs) - min(xs), alto=max(ys) - min(ys),
+                    svg_element=elem_id,
+                    metadata={"area_m2": round(area_m2, 2), "perimetro_m": round(perim_m, 2), "texto_asociado": clean_text}
+                )
+                entities.append(ent)
+
+                reconstructed_poly = PolygonEntityData(
+                    entity_idx=len(entities) - 1,
+                    pts=room_pts,
+                    area_m2=area_m2,
+                    perim_m=perim_m,
+                    layer="RECINTO_REINFERIDO",
+                    tipo="SALA",
+                    sw=wall_sw,
+                    stroke=TYPE_STYLES["SALA"]["stroke"],
+                    opacity=TYPE_STYLES["SALA"]["opacity"],
+                    z=TYPE_STYLES["SALA"]["z"],
+                    elem_id=elem_id,
+                    ent=ent
+                )
+                polygon_records.append(reconstructed_poly)
+                best_poly = reconstructed_poly
+            else:
+                best_poly = containing_polys[0]
+        else:
+            candidates = room_candidates if room_candidates else containing_polys
+            candidates.sort(key=lambda p: p.area_m2)
+            best_poly = candidates[0]
 
         # Inferir tipo de recinto si el texto es un código (A209, A210) o tipo de sala
         inferred = _infer_room_type_from_text(clean_text)
