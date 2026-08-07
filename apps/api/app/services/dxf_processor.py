@@ -8,6 +8,7 @@ Convierte entidades DXF en:
 import json
 import math
 import os
+import re
 import tempfile
 from dataclasses import dataclass, field
 from typing import Any
@@ -19,6 +20,35 @@ try:
     EZDXF_AVAILABLE = True
 except ImportError:
     EZDXF_AVAILABLE = False
+
+
+ROOM_CODE_REGEX = re.compile(r'^(?:[A-Z]{1,3}[-_\s]?)?\d{2,4}[A-Z]?$', re.IGNORECASE)
+
+
+def _infer_room_type_from_text(text_val: str) -> str | None:
+    txt = text_val.strip().upper()
+    if not txt:
+        return None
+    if any(w in txt for w in ("SALA", "AULA", "CLASSROOM")):
+        return "SALA"
+    if any(w in txt for w in ("OFICINA", "OFFICE", "DESPACHO")):
+        return "OFICINA"
+    if any(w in txt for w in ("LAB", "LABORATORIO")):
+        return "LABORATORIO"
+    if any(w in txt for w in ("BAÑO", "BANO", "WC", "TOILET", "ASEO", "SANITARIO")):
+        return "BAÑO"
+    if any(w in txt for w in ("DEP", "ALMACEN", "STORAGE", "BODEGA")):
+        return "DEPOSITO"
+    if any(w in txt for w in ("PASILLO", "CORREDOR", "HALL", "CORRIDOR")):
+        return "PASILLO"
+    if any(w in txt for w in ("ESCALERA", "STAIR")):
+        return "ESCALERA"
+    if any(w in txt for w in ("ASCENSOR", "LIFT", "ELEVATOR")):
+        return "ASCENSOR"
+    if ROOM_CODE_REGEX.match(txt):
+        return "SALA"
+    return None
+
 
 
 # ── Mapeo de capas a tipos semánticos ─────────────────────────────────────────
@@ -196,6 +226,22 @@ class DxfEntity:
 
 
 @dataclass
+class PolygonEntityData:
+    entity_idx: int
+    pts: list[tuple[float, float]]
+    area_m2: float
+    perim_m: float
+    layer: str
+    tipo: str
+    sw: float
+    stroke: str
+    opacity: float
+    z: int
+    elem_id: str
+    ent: DxfEntity
+
+
+@dataclass
 class ProcessedDxf:
     svg: str
     entities: list[DxfEntity]
@@ -358,7 +404,7 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
     layers_z: dict[int, list[str]] = {}
     entities: list[DxfEntity] = []
     text_points: list[tuple[float, float, str]] = []
-    polygon_entities: list[tuple[int, list[tuple[float, float]], DxfEntity]] = []
+    polygon_records: list[PolygonEntityData] = []
     entity_idx = 0
 
     def add_svg(z: int, elem: str) -> None:
@@ -392,22 +438,6 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
                 
                 area_m2, perim_m = _calculate_area_and_perimeter(pts) if is_closed else (0.0, 0.0)
 
-                # Usar transparent para polígonos cerrados (permite click sin tapar el mapa)
-                svg_fill = "transparent" if is_closed else "none"
-                tag = "polygon" if is_closed else "polyline"
-
-                pts_str = " ".join(f"{tx(p[0]):.2f},{ty(p[1]):.2f}" for p in pts)
-                
-                # vector-effect="non-scaling-stroke" garantiza líneas ultrafinas y nítidas
-                elem = (
-                    f'<{tag} id="{elem_id}" data-layer="{layer}" data-tipo="{tipo}" '
-                    f'data-area="{area_m2:.1f}" '
-                    f'points="{pts_str}" fill="{svg_fill}" stroke="{stroke}" '
-                    f'stroke-width="{sw:.2f}" vector-effect="non-scaling-stroke" opacity="{opacity}" '
-                    f'stroke-linejoin="round" class="dxf-entity" />'
-                )
-                add_svg(z, elem)
-
                 xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
                 ent = DxfEntity(
                     tipo=tipo, nombre=None, capa=layer,
@@ -417,8 +447,31 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
                     metadata={"area_m2": round(area_m2, 2), "perimetro_m": round(perim_m, 2)},
                 )
                 entities.append(ent)
+
                 if is_closed and len(pts) >= 3:
-                    polygon_entities.append((len(entities) - 1, pts, ent))
+                    polygon_records.append(PolygonEntityData(
+                        entity_idx=len(entities) - 1,
+                        pts=pts,
+                        area_m2=area_m2,
+                        perim_m=perim_m,
+                        layer=layer,
+                        tipo=tipo,
+                        sw=sw,
+                        stroke=stroke,
+                        opacity=opacity,
+                        z=z,
+                        elem_id=elem_id,
+                        ent=ent,
+                    ))
+                else:
+                    pts_str = " ".join(f"{tx(p[0]):.2f},{ty(p[1]):.2f}" for p in pts)
+                    elem = (
+                        f'<polyline id="{elem_id}" data-layer="{layer}" data-tipo="{tipo}" '
+                        f'points="{pts_str}" fill="none" stroke="{stroke}" '
+                        f'stroke-width="{sw:.2f}" vector-effect="non-scaling-stroke" opacity="{opacity}" '
+                        f'stroke-linejoin="round" class="dxf-entity" />'
+                    )
+                    add_svg(z, elem)
 
             elif etype == "LINE":
                 s = entity.dxf.start
@@ -481,13 +534,11 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
                 ))
 
             elif etype == "INSERT":
-                # Bloque de mobiliario o equipamiento (escritorio, silla, ventana, etc.)
                 ip = entity.dxf.insert
                 block_name = getattr(entity.dxf, "name", "BLOQUE")
                 block_tipo = "MOBILIARIO" if "mueble" in layer.lower() or "furn" in layer.lower() else (
                     "CARPINTERIA" if "door" in layer.lower() or "puerta" in layer.lower() else "EQUIPO"
                 )
-                # Tamaño sutil proporcional al plano
                 bw = max(width * 0.008, 0.5)
                 elem = (
                     f'<rect id="{elem_id}" data-layer="{layer}" data-tipo="{block_tipo}" '
@@ -559,16 +610,76 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
 
         entity_idx += 1
 
-    # ── Segunda pasada v2.0: Asociación Espacial Texto-Polígono ───────────────
-    # Vincular textos que están dentro de polígonos para nombrarlos automáticamente
-    for _, poly_pts, ent in polygon_entities:
-        for tx_x, tx_y, text_val in text_points:
-            if _is_point_in_polygon(tx_x, tx_y, poly_pts):
-                if not ent.nombre:
-                    ent.nombre = text_val
-                    ent.metadata["texto_asociado"] = text_val
-                elif text_val not in ent.nombre:
-                    ent.metadata.setdefault("otros_textos", []).append(text_val)
+    # ── Segunda pasada: Asociación Espacial al Polígono Más Pequeño (Innermost) ───
+    total_floor_area_m2 = width * height
+
+    for tx_x, tx_y, text_val in text_points:
+        clean_text = text_val.strip()
+        if not clean_text:
+            continue
+
+        # Buscar polígonos que contienen este texto
+        containing_polys: list[PolygonEntityData] = []
+        for poly in polygon_records:
+            if _is_point_in_polygon(tx_x, tx_y, poly.pts):
+                containing_polys.append(poly)
+
+        if not containing_polys:
+            continue
+
+        # Filtrar polígonos candidatos excluyendo perímetros gigantes (>35% área total)
+        room_candidates = [
+            p for p in containing_polys
+            if p.area_m2 < total_floor_area_m2 * 0.35
+        ]
+        candidates = room_candidates if room_candidates else containing_polys
+
+        # Ordenar candidatos por área ASCENDENTE (el recinto más específico primero)
+        candidates.sort(key=lambda p: p.area_m2)
+        best_poly = candidates[0]
+
+        # Inferir tipo de recinto si el texto es un código (A209, A210) o tipo de sala
+        inferred = _infer_room_type_from_text(clean_text)
+        if inferred:
+            best_poly.tipo = inferred
+            best_poly.ent.tipo = inferred
+
+        # Asignar o enriquecer el nombre del polígono
+        if not best_poly.ent.nombre:
+            best_poly.ent.nombre = clean_text
+            best_poly.ent.metadata["texto_asociado"] = clean_text
+        elif clean_text not in best_poly.ent.nombre:
+            if ROOM_CODE_REGEX.match(clean_text):
+                best_poly.ent.nombre = f"{clean_text} - {best_poly.ent.nombre}"
+            else:
+                best_poly.ent.nombre = f"{best_poly.ent.nombre} - {clean_text}"
+            best_poly.ent.metadata.setdefault("otros_textos", []).append(clean_text)
+
+    # ── Tercera pasada: Renderizado SVG de Polígonos Ordenados (Área Descendente) ──
+    # Renderizar primero los perímetros grandes al fondo y al final los recintos pequeños
+    # en la parte superior del árbol DOM para garantizar clics 100% precisos.
+    polygon_records.sort(key=lambda p: p.area_m2, reverse=True)
+
+    for poly in polygon_records:
+        style = TYPE_STYLES.get(poly.tipo, TYPE_STYLES["DEFAULT"])
+        stroke = style["stroke"]
+        opacity = style["opacity"]
+        z = style["z"]
+
+        is_giant = poly.area_m2 > total_floor_area_m2 * 0.35
+        pointer_attr = 'pointer-events="stroke"' if is_giant else ''
+
+        pts_str = " ".join(f"{tx(p[0]):.2f},{ty(p[1]):.2f}" for p in poly.pts)
+        nombre_attr = poly.ent.nombre.replace('"', '&quot;') if poly.ent.nombre else ''
+
+        elem = (
+            f'<polygon id="{poly.elem_id}" data-layer="{poly.layer}" data-tipo="{poly.tipo}" '
+            f'data-nombre="{nombre_attr}" data-area="{poly.area_m2:.1f}" '
+            f'points="{pts_str}" fill="transparent" stroke="{stroke}" '
+            f'stroke-width="{poly.sw:.2f}" vector-effect="non-scaling-stroke" opacity="{opacity}" '
+            f'stroke-linejoin="round" class="dxf-entity" {pointer_attr} />'
+        )
+        add_svg(z, elem)
 
     # ── Construir SVG final ───────────────────────────────────────────────────
     svg_parts: list[str] = []
@@ -594,3 +705,4 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
         width=width,
         height=height,
     )
+
