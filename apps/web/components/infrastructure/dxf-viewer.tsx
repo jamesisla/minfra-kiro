@@ -122,14 +122,33 @@ export function DxfViewer() {
     setContainerSize({ w: width, h: height });
     const { svgW, svgH } = getSvgDimensions();
 
-    const scale = Math.min((width * 0.90) / svgW, (height * 0.90) / svgH);
+    const scale = Math.min((width * 0.95) / svgW, (height * 0.95) / svgH);
     const translateX = (width - svgW * scale) / 2;
     const translateY = (height - svgH * scale) / 2;
 
     setTransform({ scale, translateX, translateY });
   }, [activePiso, getSvgDimensions]);
 
-  // Centrar cuando cambia el piso y escuchar resize del contenedor
+  // Centrar e igualar margen inmediatamente al cargar o guardar un piso
+  useEffect(() => {
+    if (!activePiso?.svg_data) return;
+    const timer = setTimeout(() => {
+      fitToContainer();
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [activePiso?.id, activePiso?.svg_data, fitToContainer]);
+
+  // Listener para ajustar automáticamente al redimensionar la ventana o contenedor
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => {
+      fitToContainer();
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [fitToContainer]);
+
   // Sincronizar clase .selected en el SVG dinámicamente con el store
   useEffect(() => {
     if (!svgWrapperRef.current) return;

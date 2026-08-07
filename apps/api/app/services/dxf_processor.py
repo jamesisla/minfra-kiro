@@ -255,11 +255,11 @@ def _calculate_smart_bounds(
     if dx <= 0: dx = 10.0
     if dy <= 0: dy = 10.0
 
-    # Margen ajustado (1.5%) alrededor del contorno
-    margin_x = dx * 0.015
-    margin_y = dy * 0.015
+    # Margen hiper-ajustado uniforme (0.5% del tamaño mínimo del plano)
+    # Minimiza al máximo el área blanca sobrante alrededor del piso/planta
+    margin = min(dx, dy) * 0.005
 
-    return min_x - margin_x, min_y - margin_y, max_x + margin_x, max_y + margin_y
+    return min_x - margin, min_y - margin, max_x + margin, max_y + margin
 
 
 def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedDxf:
@@ -298,7 +298,9 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
 
     STRUCTURAL_TYPES = {
         "PARED", "COLUMNA", "AREA", "SALA", "OFICINA",
-        "LABORATORIO", "BAÑO", "PASILLO", "MOBILIARIO", "CARPINTERIA"
+        "LABORATORIO", "BAÑO", "PASILLO", "MOBILIARIO", "CARPINTERIA",
+        "VENTANA", "ESCALERA", "EQUIPO", "ASCENSOR", "DEPOSITO",
+        "COMEDOR", "CAFETERIA", "BIBLIOTECA", "AUDITORIO", "SALA_REUNION", "SALA_SERVIDORES"
     }
 
     for entity in msp:
