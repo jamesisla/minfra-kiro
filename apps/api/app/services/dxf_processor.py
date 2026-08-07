@@ -207,6 +207,61 @@ class ProcessedDxf:
     height: float
 
 
+def _calculate_smart_bounds(
+    all_points: list[tuple[float, float]],
+    priority_points: list[tuple[float, float]]
+) -> tuple[float, float, float, float]:
+    """
+    Calcula el cuadro delimitador (bounding box) óptimo descartando
+    outliers (puntos huérfanos o distantes del plano real) mediante el método IQR
+    y dándoles prioridad a las capas estructurales.
+    """
+    pts = priority_points if len(priority_points) >= 10 else all_points
+    if not pts:
+        return 0.0, 0.0, 100.0, 100.0
+
+    xs = sorted(p[0] for p in pts)
+    ys = sorted(p[1] for p in pts)
+    n = len(xs)
+
+    if n < 15:
+        min_x, max_x = xs[0], xs[-1]
+        min_y, max_y = ys[0], ys[-1]
+    else:
+        # Método IQR (Rango Intercuartílico) para descartar ruido distante
+        q25_idx = int(n * 0.25)
+        q75_idx = int(n * 0.75)
+        q25_x, q75_x = xs[q25_idx], xs[q75_idx]
+        iqr_x = q75_x - q25_x
+
+        q25_y, q75_y = ys[q25_idx], ys[q75_idx]
+        iqr_y = q75_y - q25_y
+
+        # Definir límites válidos excluyendo ruido fuera de 2.5 * IQR
+        if iqr_x > 0 and (xs[-1] - xs[0]) > 2.5 * iqr_x:
+            min_x = max(xs[0], q25_x - 2.5 * iqr_x)
+            max_x = min(xs[-1], q75_x + 2.5 * iqr_x)
+        else:
+            min_x, max_x = xs[0], xs[-1]
+
+        if iqr_y > 0 and (ys[-1] - ys[0]) > 2.5 * iqr_y:
+            min_y = max(ys[0], q25_y - 2.5 * iqr_y)
+            max_y = min(ys[-1], q75_y + 2.5 * iqr_y)
+        else:
+            min_y, max_y = ys[0], ys[-1]
+
+    dx = max_x - min_x
+    dy = max_y - min_y
+    if dx <= 0: dx = 10.0
+    if dy <= 0: dy = 10.0
+
+    # Margen ajustado (1.5%) alrededor del contorno
+    margin_x = dx * 0.015
+    margin_y = dy * 0.015
+
+    return min_x - margin_x, min_y - margin_y, max_x + margin_x, max_y + margin_y
+
+
 def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedDxf:
     if not EZDXF_AVAILABLE:
         raise RuntimeError("ezdxf no está instalado. Ejecuta: pip install ezdxf")
@@ -237,25 +292,39 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
 
     msp: Modelspace = doc.modelspace()
 
-    # ── Primera pasada: calcular bounds globales ───────────────────────────────
+    # ── Primera pasada: calcular bounds globales y prioritarios ──────────────
     all_points: list[tuple[float, float]] = []
+    priority_points: list[tuple[float, float]] = []
+
+    STRUCTURAL_TYPES = {
+        "PARED", "COLUMNA", "AREA", "SALA", "OFICINA",
+        "LABORATORIO", "BAÑO", "PASILLO", "MOBILIARIO", "CARPINTERIA"
+    }
 
     for entity in msp:
         etype = entity.dxftype()
+        layer = getattr(entity.dxf, "layer", "0")
+        tipo = _layer_to_type(layer)
+        is_priority = tipo in STRUCTURAL_TYPES
         try:
+            pts: list[tuple[float, float]] = []
             if etype in ("LWPOLYLINE", "POLYLINE"):
                 pts = _poly_to_points(entity)
-                all_points.extend(pts)
             elif etype == "LINE":
                 s, e_pt = entity.dxf.start, entity.dxf.end
-                all_points.extend([(s.x, s.y), (e_pt.x, e_pt.y)])
+                pts = [(s.x, s.y), (e_pt.x, e_pt.y)]
             elif etype in ("CIRCLE", "ARC"):
                 cx, cy = entity.dxf.center.x, entity.dxf.center.y
                 r = entity.dxf.radius
-                all_points.extend([(cx - r, cy - r), (cx + r, cy + r)])
+                pts = [(cx - r, cy - r), (cx + r, cy + r)]
             elif etype in ("TEXT", "MTEXT", "INSERT"):
                 ip = entity.dxf.insert
-                all_points.append((ip.x, ip.y))
+                pts = [(ip.x, ip.y)]
+
+            if pts:
+                all_points.extend(pts)
+                if is_priority:
+                    priority_points.extend(pts)
         except Exception:
             continue
 
@@ -267,22 +336,12 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
             width=100, height=100,
         )
 
-    global_minx = min(p[0] for p in all_points)
-    global_miny = min(p[1] for p in all_points)
-    global_maxx = max(p[0] for p in all_points)
-    global_maxy = max(p[1] for p in all_points)
-
-    margin_x = (global_maxx - global_minx) * 0.02
-    margin_y = (global_maxy - global_miny) * 0.02
-    global_minx -= margin_x
-    global_miny -= margin_y
-    global_maxx += margin_x
-    global_maxy += margin_y
+    global_minx, global_miny, global_maxx, global_maxy = _calculate_smart_bounds(all_points, priority_points)
 
     width  = max(global_maxx - global_minx, 1.0)
     height = max(global_maxy - global_miny, 1.0)
 
-    # Grosor de línea base ultra delgado reducido a la mitad (0.075px)
+    # Grosor de línea base ultra delgado (0.075px)
     base_sw = 0.075
     wall_sw  = 0.10
     thin_sw  = 0.05
@@ -467,7 +526,8 @@ def process_dxf_bytes(content: bytes, filename: str = "plano.dxf") -> ProcessedD
             elif etype == "MTEXT":
                 ip = entity.dxf.insert
                 try:
-                    txt = entity.plain_mtext() or ""
+                    plain_fn = getattr(entity, "plain_mtext", None) or getattr(entity, "plain_text", None)
+                    txt = plain_fn() if callable(plain_fn) else (getattr(entity.dxf, "text", "") or "")
                 except Exception:
                     txt = getattr(entity.dxf, "text", "") or ""
                 txt = txt.strip()
