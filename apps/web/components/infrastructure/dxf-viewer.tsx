@@ -58,28 +58,60 @@ export function DxfViewer() {
     });
   }, []);
 
-  // Generar reglas CSS declarativas para capas ocultas (persisten nativamente durante zoom/pan)
-  const hiddenCss = useMemo(() => {
-    if (hiddenTypes.size === 0) return "";
-    const rules = Array.from(hiddenTypes).map(
-      (type) => `[data-tipo="${type.replace(/"/g, '\\"')}"], [data-layer="${type.replace(/"/g, '\\"')}"]`
-    );
-    return `${rules.join(",\n")} { display: none !important; pointer-events: none !important; }`;
-  }, [hiddenTypes]);
+  // Mapear un conjunto ampliado de claves ocultas que incluye tipo Y capa asociada de los items
+  const activeHiddenKeys = useMemo(() => {
+    const keys = new Set<string>(hiddenTypes);
+    if (!activePiso?.items) return keys;
+    activePiso.items.forEach((item) => {
+      if (hiddenTypes.has(item.tipo) || (item.capa && hiddenTypes.has(item.capa))) {
+        if (item.tipo) keys.add(item.tipo);
+        if (item.capa) keys.add(item.capa);
+      }
+    });
+    return keys;
+  }, [hiddenTypes, activePiso?.items]);
 
-  // Limpiar selección activa si pertenece a una capa recién ocultada
+  // Generar reglas CSS declarativas ultra-específicas para capas ocultas
+  const hiddenCss = useMemo(() => {
+    if (activeHiddenKeys.size === 0) return "";
+    const rules = Array.from(activeHiddenKeys).map((key) => {
+      const escaped = key.replace(/"/g, '\\"');
+      return `[data-tipo="${escaped}"], [data-layer="${escaped}"], [data-capa="${escaped}"]`;
+    });
+    return `${rules.join(",\n")} { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }`;
+  }, [activeHiddenKeys]);
+
+  // Aplicar directamente ocultación en DOM SVG en cada render o actualización de transform (pan/zoom)
   useEffect(() => {
+    if (!svgWrapperRef.current) return;
+    const elements = svgWrapperRef.current.querySelectorAll<SVGElement>("[data-tipo], [data-layer], [data-capa]");
+    elements.forEach((el) => {
+      const tipo = el.getAttribute("data-tipo");
+      const layer = el.getAttribute("data-layer");
+      const isHidden = (tipo && activeHiddenKeys.has(tipo)) || (layer && activeHiddenKeys.has(layer));
+      if (isHidden) {
+        el.style.setProperty("display", "none", "important");
+        el.style.setProperty("pointer-events", "none", "important");
+        if (el.classList.contains("selected")) {
+          el.classList.remove("selected");
+        }
+      } else {
+        el.style.removeProperty("display");
+        el.style.removeProperty("pointer-events");
+      }
+    });
+
     if (selectedItem) {
       const itemTipo = selectedItem.tipo;
       const itemCapa = selectedItem.capa;
       if (
-        (itemTipo && hiddenTypes.has(itemTipo)) ||
-        (itemCapa && hiddenTypes.has(itemCapa))
+        (itemTipo && activeHiddenKeys.has(itemTipo)) ||
+        (itemCapa && activeHiddenKeys.has(itemCapa))
       ) {
         clearSelectedItem();
       }
     }
-  }, [hiddenTypes, selectedItem, clearSelectedItem]);
+  }, [activeHiddenKeys, activePiso, selectedItem, transform, clearSelectedItem]);
 
   // Pan state
   const isPanning = useRef(false);
@@ -491,8 +523,10 @@ export function DxfViewer() {
             width: svgDims.svgW,
             height: svgDims.svgH,
           }}
-          dangerouslySetInnerHTML={{ __html: activePiso.svg_data }}
-        />
+        >
+          {hiddenCss && <style dangerouslySetInnerHTML={{ __html: hiddenCss }} />}
+          <div dangerouslySetInnerHTML={{ __html: activePiso.svg_data }} />
+        </div>
       </div>
     </div>
   );
