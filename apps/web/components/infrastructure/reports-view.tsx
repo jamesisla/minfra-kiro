@@ -16,6 +16,7 @@ import {
   MapPin,
   Maximize2,
   PieChart,
+  RotateCw,
   Search,
   SlidersHorizontal,
   Sparkles,
@@ -81,6 +82,8 @@ export function ReportsView() {
     selectEdificio,
     selectPiso,
     setActiveTab,
+    activeTab,
+    activePiso,
   } = useInfrastructureStore();
 
   const [scope, setScope] = useState<"total" | "sede" | "edificio" | "piso">("total");
@@ -106,10 +109,9 @@ export function ReportsView() {
     }
   }, [scope, selectedSedeId, selectedEdificioId, selectedPisoId, tree]);
 
-  // Cargar reporte de la API
-  useEffect(() => {
+  // Cargar reporte de la API (re-ejecutar cuando cambia scope, scopeId, authToken, o cuando se sube/actualiza un piso)
+  const loadReportData = () => {
     if (!authToken) return;
-    let isCancelled = false;
     setLoading(true);
     setError(null);
 
@@ -119,22 +121,18 @@ export function ReportsView() {
     apiClient
       .get<ReportSummary>(`/api/v1/infrastructure/reports?${queryParams.toString()}`, { token: authToken })
       .then((data) => {
-        if (!isCancelled) {
-          setReport(data);
-          setLoading(false);
-        }
+        setReport(data);
+        setLoading(false);
       })
       .catch((err) => {
-        if (!isCancelled) {
-          setError(err.message || "Error al cargar los datos del reporte.");
-          setLoading(false);
-        }
+        setError(err.message || "Error al cargar los datos del reporte.");
+        setLoading(false);
       });
+  };
 
-    return () => {
-      isCancelled = true;
-    };
-  }, [scope, scopeId, authToken]);
+  useEffect(() => {
+    loadReportData();
+  }, [scope, scopeId, authToken, activeTab, activePiso?.id, activePiso?.archivo_dxf, activePiso?.items?.length]);
 
   // Filtrado local de la tabla de recintos
   const filteredItems = useMemo(() => {
@@ -258,6 +256,16 @@ export function ReportsView() {
           >
             <Layers className="w-3.5 h-3.5" />
             Por Piso
+          </button>
+          <div className="w-px h-4 bg-border mx-1 hidden sm:block" />
+          <button
+            onClick={loadReportData}
+            disabled={loading}
+            className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors flex items-center gap-1.5 disabled:opacity-50"
+            title="Recargar datos del reporte desde la base de datos"
+          >
+            <RotateCw className={cn("w-3.5 h-3.5 text-primary", loading && "animate-spin")} />
+            <span className="hidden sm:inline">Actualizar</span>
           </button>
         </div>
       </div>

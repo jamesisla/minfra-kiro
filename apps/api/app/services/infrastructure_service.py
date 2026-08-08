@@ -366,6 +366,18 @@ class InfrastructureService:
         edificios_set = set()
         pisos_set = set()
 
+        def _safe_float(val: Any) -> float | None:
+            if val is None:
+                return None
+            try:
+                f = float(val)
+                import math
+                if math.isnan(f) or math.isinf(f):
+                    return None
+                return f
+            except (ValueError, TypeError):
+                return None
+
         for item, piso, edif, sede in rows:
             sedes_set.add(sede.id)
             edificios_set.add(edif.id)
@@ -382,6 +394,9 @@ class InfrastructureService:
                 except Exception:
                     pass
 
+            parsed_area = _safe_float(area_m2)
+            parsed_perim = _safe_float(perim_m)
+
             tipo = item.tipo or "DEFAULT"
             if tipo not in category_stats:
                 category_stats[tipo] = {
@@ -391,9 +406,9 @@ class InfrastructureService:
                 }
 
             category_stats[tipo]["cantidad"] += 1
-            if area_m2 and isinstance(area_m2, (int, float)):
-                category_stats[tipo]["area"] += float(area_m2)
-                total_area += float(area_m2)
+            if parsed_area and parsed_area > 0:
+                category_stats[tipo]["area"] += parsed_area
+                total_area += parsed_area
 
             total_recintos += 1
 
@@ -402,8 +417,8 @@ class InfrastructureService:
                 nombre=item.nombre,
                 tipo=tipo,
                 capa=item.capa,
-                area_m2=round(float(area_m2), 2) if area_m2 else None,
-                perimetro_m=round(float(perim_m), 2) if perim_m else None,
+                area_m2=round(parsed_area, 2) if parsed_area is not None else None,
+                perimetro_m=round(parsed_perim, 2) if parsed_perim is not None else None,
                 sede_nombre=sede.nombre,
                 edificio_nombre=edif.nombre,
                 piso_nombre=piso.nombre or f"Piso {piso.numero}",

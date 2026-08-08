@@ -237,6 +237,7 @@ async def update_item(
 # ── Reportes & Métricas ───────────────────────────────────────────────────
 
 @router.get("/reports", response_model=ReportSummary)
+@router.get("/reports/", response_model=ReportSummary)
 async def get_reports(
     db: DbSession,
     _: CurrentUser,
