@@ -83,8 +83,9 @@ interface InfrastructureState {
   selectedItem: PlanoItem | null;
   selectedItemPosition: { x: number; y: number } | null;
 
-  // Token de auth
-  authToken: string | null;
+  // Pestaña activa (Visor CAD vs Reportes)
+  activeTab: "viewer" | "reports";
+  setActiveTab: (tab: "viewer" | "reports") => void;
 
   // Acciones
   setAuthToken: (token: string | null) => void;
@@ -115,7 +116,9 @@ export const useInfrastructureStore = create<InfrastructureState>((set, get) => 
   selectedItem: null,
   selectedItemPosition: null,
   authToken: null,
+  activeTab: "viewer",
 
+  setActiveTab: (tab) => set({ activeTab: tab }),
   setAuthToken: (token) => set({ authToken: token }),
 
   fetchTree: async (token: string) => {

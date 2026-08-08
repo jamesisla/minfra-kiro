@@ -19,6 +19,7 @@ from app.schemas.infrastructure import (
     PisoUpdate,
     PlanoItemRead,
     PlanoItemUpdate,
+    ReportSummary,
     SedeCreate,
     SedeRead,
     SedeUpdate,
@@ -231,4 +232,21 @@ async def update_item(
     """Actualiza la información de un item del plano (nombre, tipo, capa, metadata_extra)."""
     service = InfrastructureService(db)
     return await service.update_item(item_id, payload)
+
+
+# ── Reportes & Métricas ───────────────────────────────────────────────────
+
+@router.get("/reports", response_model=ReportSummary)
+async def get_reports(
+    db: DbSession,
+    _: CurrentUser,
+    scope: str = "total",
+    scope_id: str | None = None,
+) -> ReportSummary:
+    """
+    Retorna métricas y reporte consolidado o filtrado por Sede, Edificio o Piso.
+    """
+    service = InfrastructureService(db)
+    return await service.get_reports(scope=scope, scope_id=scope_id)
+
 

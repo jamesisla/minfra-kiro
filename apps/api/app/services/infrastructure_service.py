@@ -17,12 +17,14 @@ from app.repositories.infrastructure import (
     SedeRepository,
 )
 from app.schemas.infrastructure import (
+    CategoryReport,
     DxfUploadResult,
     EdificioCreate,
     EdificioRead,
     EdificioTreeItem,
     EdificioUpdate,
     InfrastructureTree,
+    ItemReportDetail,
     PlanoItemRead,
     PlanoItemUpdate,
     PisoCreate,
@@ -30,6 +32,7 @@ from app.schemas.infrastructure import (
     PisoReadWithSVG,
     PisoTreeItem,
     PisoUpdate,
+    ReportSummary,
     SedeCreate,
     SedeRead,
     SedeTreeItem,
@@ -282,4 +285,152 @@ class InfrastructureService:
         update_data = data.model_dump(exclude_unset=True)
         item = await self.item_repo.update(item, update_data)
         return PlanoItemRead.model_validate(item)
+
+    # ── Reportes & Métricas ───────────────────────────────────────────────
+
+    async def get_reports(self, scope: str = "total", scope_id: str | None = None) -> ReportSummary:
+        """
+        Calcula reporte consolidado o filtrado por Sede, Edificio o Piso.
+        """
+        stmt = (
+            select(PlanoItem, Piso, Edificio, Sede)
+            .join(Piso, PlanoItem.piso_id == Piso.id)
+            .join(Edificio, Piso.edificio_id == Edificio.id)
+            .join(Sede, Edificio.sede_id == Sede.id)
+            .where(
+                PlanoItem.deleted_at.is_(None),
+                Piso.deleted_at.is_(None),
+                Edificio.deleted_at.is_(None),
+                Sede.deleted_at.is_(None),
+            )
+        )
+
+        scope_clean = (scope or "total").lower()
+        scope_name = "Total General"
+        target_uuid = None
+        if scope_id:
+            try:
+                target_uuid = uuid.UUID(scope_id.strip("/"))
+            except ValueError:
+                pass
+
+        if scope_clean == "sede" and target_uuid:
+            stmt = stmt.where(Sede.id == target_uuid)
+            sede_obj = await self.sede_repo.get(target_uuid)
+            if sede_obj:
+                scope_name = f"Sede: {sede_obj.nombre}"
+        elif scope_clean == "edificio" and target_uuid:
+            stmt = stmt.where(Edificio.id == target_uuid)
+            edif_obj = await self.edificio_repo.get(target_uuid)
+            if edif_obj:
+                scope_name = f"Edificio: {edif_obj.nombre}"
+        elif scope_clean == "piso" and target_uuid:
+            stmt = stmt.where(Piso.id == target_uuid)
+            piso_obj = await self.piso_repo.get(target_uuid)
+            if piso_obj:
+                scope_name = f"Piso {piso_obj.numero}" + (f" ({piso_obj.nombre})" if piso_obj.nombre else "")
+
+        res = await self.db.execute(stmt)
+        rows = res.all()
+
+        TYPE_LABELS = {
+            "PARED": "Muros y Estructura",
+            "COLUMNA": "Columnas",
+            "AREA": "Áreas Generales",
+            "SALA": "Salas de Clases / Aulas",
+            "LABORATORIO": "Laboratorios",
+            "OFICINA": "Oficinas / Despachos",
+            "BAÑO": "Baños / Sanitarios",
+            "PASILLO": "Pasillos / Circulación",
+            "ESCALERA": "Escaleras",
+            "ASCENSOR": "Ascensores",
+            "SALA_SERVIDORES": "Salas de Servidores",
+            "DEPOSITO": "Depósitos / Almacén",
+            "COMEDOR": "Comedor / Cafetería",
+            "BIBLIOTECA": "Biblioteca",
+            "AUDITORIO": "Auditorio",
+            "SALA_REUNION": "Salas de Reuniones",
+            "CARPINTERIA": "Puertas / Ventanas",
+            "MOBILIARIO": "Mobiliario",
+            "EQUIPO": "Equipos",
+            "TEXTO": "Etiquetas de Texto",
+            "DEFAULT": "General",
+        }
+
+        category_stats: dict[str, dict] = {}
+        items_detail: list[ItemReportDetail] = []
+        total_area = 0.0
+        total_recintos = 0
+
+        sedes_set = set()
+        edificios_set = set()
+        pisos_set = set()
+
+        for item, piso, edif, sede in rows:
+            sedes_set.add(sede.id)
+            edificios_set.add(edif.id)
+            pisos_set.add(piso.id)
+
+            area_m2 = None
+            perim_m = None
+            if item.metadata_extra:
+                try:
+                    meta = json.loads(item.metadata_extra)
+                    if isinstance(meta, dict):
+                        area_m2 = meta.get("area_m2")
+                        perim_m = meta.get("perimetro_m")
+                except Exception:
+                    pass
+
+            tipo = item.tipo or "DEFAULT"
+            if tipo not in category_stats:
+                category_stats[tipo] = {
+                    "label": TYPE_LABELS.get(tipo, tipo.title()),
+                    "cantidad": 0,
+                    "area": 0.0,
+                }
+
+            category_stats[tipo]["cantidad"] += 1
+            if area_m2 and isinstance(area_m2, (int, float)):
+                category_stats[tipo]["area"] += float(area_m2)
+                total_area += float(area_m2)
+
+            total_recintos += 1
+
+            items_detail.append(ItemReportDetail(
+                id=item.id,
+                nombre=item.nombre,
+                tipo=tipo,
+                capa=item.capa,
+                area_m2=round(float(area_m2), 2) if area_m2 else None,
+                perimetro_m=round(float(perim_m), 2) if perim_m else None,
+                sede_nombre=sede.nombre,
+                edificio_nombre=edif.nombre,
+                piso_nombre=piso.nombre or f"Piso {piso.numero}",
+            ))
+
+        cat_list: list[CategoryReport] = []
+        for tipo, data in sorted(category_stats.items(), key=lambda x: x[1]["area"], reverse=True):
+            pct = (data["area"] / total_area * 100.0) if total_area > 0 else 0.0
+            cat_list.append(CategoryReport(
+                tipo=tipo,
+                label=data["label"],
+                cantidad=data["cantidad"],
+                area_total_m2=round(data["area"], 2),
+                porcentaje_area=round(pct, 1),
+            ))
+
+        return ReportSummary(
+            scope=scope_clean,
+            scope_id=scope_id,
+            scope_name=scope_name,
+            total_area_m2=round(total_area, 2),
+            total_recintos=total_recintos,
+            total_sedes=len(sedes_set),
+            total_edificios=len(edificios_set),
+            total_pisos=len(pisos_set),
+            categorias=cat_list,
+            items_detalle=items_detail,
+        )
+
 

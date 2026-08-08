@@ -157,3 +157,39 @@ class DxfUploadResult(BaseModel):
     archivo: str
     entidades_procesadas: int
     mensaje: str
+
+
+# ── Reportes & Métricas ───────────────────────────────────────────────────
+
+class CategoryReport(BaseModel):
+    tipo: str
+    label: str
+    cantidad: int
+    area_total_m2: float
+    porcentaje_area: float
+
+
+class ItemReportDetail(BaseModel):
+    id: uuid.UUID
+    nombre: str | None
+    tipo: str
+    capa: str | None
+    area_m2: float | None
+    perimetro_m: float | None
+    sede_nombre: str
+    edificio_nombre: str
+    piso_nombre: str
+
+
+class ReportSummary(BaseModel):
+    scope: str
+    scope_id: str | None = None
+    scope_name: str
+    total_area_m2: float
+    total_recintos: int
+    total_sedes: int
+    total_edificios: int
+    total_pisos: int
+    categorias: list[CategoryReport]
+    items_detalle: list[ItemReportDetail]
+
