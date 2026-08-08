@@ -39,9 +39,9 @@ interface ItemReportDetail {
   capa: string | null;
   area_m2: number | null;
   perimetro_m: number | null;
-  sede_nombre: str;
-  edificio_nombre: str;
-  piso_nombre: str;
+  sede_nombre: string;
+  edificio_nombre: string;
+  piso_nombre: string;
 }
 
 interface ReportSummary {
@@ -80,6 +80,7 @@ export function ReportsView() {
     selectSede,
     selectEdificio,
     selectPiso,
+    setActiveTab,
   } = useInfrastructureStore();
 
   const [scope, setScope] = useState<"total" | "sede" | "edificio" | "piso">("total");
@@ -394,11 +395,32 @@ export function ReportsView() {
               <p className="text-2xl font-extrabold text-foreground mt-2 font-mono tabular-nums">
                 {report.total_recintos > 0 ? (report.total_area_m2 / report.total_recintos).toFixed(1) : "0"} <span className="text-sm font-normal text-muted-foreground">m²</span>
               </p>
-              <span className="text-[11px] text-muted-foreground mt-1 block">
-                Superficie media
-              </span>
             </div>
           </div>
+
+          {/* ── Banner de Estado Vacío (Sin planos CAD procesados) ───────────── */}
+          {report.total_recintos === 0 && (
+            <div className="bg-card border border-amber-500/30 rounded-2xl p-8 text-center space-y-4 shadow-sm">
+              <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto">
+                <Layers className="w-6 h-6" />
+              </div>
+              <div className="max-w-md mx-auto space-y-1.5">
+                <h3 className="text-sm font-bold text-foreground">
+                  Sin recintos procesados para {report.scope_name}
+                </h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Para que se muestren métricas, m² y clasificación de recintos (salas, oficinas, labs), es necesario subir un plano <strong>.DXF</strong> en los pisos correspondientes.
+                </p>
+              </div>
+              <button
+                onClick={() => setActiveTab("viewer")}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground font-semibold text-xs rounded-xl shadow hover:bg-primary/90 transition-colors"
+              >
+                <Maximize2 className="w-4 h-4" />
+                Ir al Visor CAD para Cargar Plano DXF
+              </button>
+            </div>
+          )}
 
           {/* ── Barra de Distribución Porcentual ────────────────────────── */}
           {report.categorias.length > 0 && (
