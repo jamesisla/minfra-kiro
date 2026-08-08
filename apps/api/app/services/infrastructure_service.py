@@ -248,24 +248,32 @@ class InfrastructureService:
             "max_y": result.max_y,
         })
 
-        # Crear los PlanoItems
+        # Crear los PlanoItems (con santización de longitudes de campos)
         items_created = 0
         for entity in result.entities:
-            meta = dict(entity.metadata) if entity.metadata else {}
-            meta["svg_element"] = entity.svg_element
-            item = PlanoItem(
-                piso_id=piso_id,
-                tipo=entity.tipo,
-                nombre=entity.nombre,
-                capa=entity.capa,
-                x=entity.x,
-                y=entity.y,
-                ancho=entity.ancho,
-                alto=entity.alto,
-                metadata_extra=json.dumps(meta),
-            )
-            self.db.add(item)
-            items_created += 1
+            try:
+                meta = dict(entity.metadata) if entity.metadata else {}
+                meta["svg_element"] = entity.svg_element
+
+                nombre_clean = str(entity.nombre)[:490] if entity.nombre is not None else None
+                capa_clean = str(entity.capa)[:240] if entity.capa is not None else None
+                tipo_clean = str(entity.tipo or "DEFAULT")[:90]
+
+                item = PlanoItem(
+                    piso_id=piso_id,
+                    tipo=tipo_clean,
+                    nombre=nombre_clean,
+                    capa=capa_clean,
+                    x=float(entity.x) if entity.x is not None else None,
+                    y=float(entity.y) if entity.y is not None else None,
+                    ancho=float(entity.ancho) if entity.ancho is not None else None,
+                    alto=float(entity.alto) if entity.alto is not None else None,
+                    metadata_extra=json.dumps(meta, ensure_ascii=False, default=str),
+                )
+                self.db.add(item)
+                items_created += 1
+            except Exception as e:
+                continue
 
         await self.db.commit()
 
