@@ -6,9 +6,37 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ZoomIn, ZoomOut, Maximize2, RotateCcw, Eye, EyeOff, Layers } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize2, RotateCcw, Eye, EyeOff, Layers, Palette, Paintbrush, Sparkles } from "lucide-react";
 import { useInfrastructureStore, type PlanoItem } from "@/lib/stores/infrastructure-store";
 import { cn } from "@/lib/utils";
+
+export type DisplayMode = "colored-shaded" | "colored-lines" | "monochrome";
+
+export const COLOR_PALETTE: Record<string, { fill: string; stroke: string }> = {
+  PARED:           { fill: "transparent", stroke: "#475569" },
+  COLUMNA:         { fill: "transparent", stroke: "#64748b" },
+  AREA:            { fill: "rgba(56, 189, 248, 0.14)", stroke: "#0284c7" },
+  SALA:            { fill: "rgba(59, 130, 246, 0.18)", stroke: "#2563eb" },
+  LABORATORIO:     { fill: "rgba(16, 185, 129, 0.18)", stroke: "#059669" },
+  OFICINA:         { fill: "rgba(245, 158, 11, 0.18)", stroke: "#d97706" },
+  BAÑO:            { fill: "rgba(99, 102, 241, 0.18)", stroke: "#4f46e5" },
+  PASILLO:         { fill: "rgba(148, 163, 184, 0.14)", stroke: "#64748b" },
+  ESCALERA:        { fill: "rgba(236, 72, 153, 0.18)", stroke: "#db2777" },
+  ASCENSOR:        { fill: "rgba(139, 92, 246, 0.18)", stroke: "#7c3aed" },
+  SALA_SERVIDORES: { fill: "rgba(239, 68, 68, 0.18)", stroke: "#dc2626" },
+  DEPOSITO:        { fill: "rgba(234, 179, 8, 0.18)", stroke: "#ca8a04" },
+  COMEDOR:         { fill: "rgba(249, 115, 22, 0.18)", stroke: "#ea580c" },
+  CAFETERIA:       { fill: "rgba(249, 115, 22, 0.18)", stroke: "#ea580c" },
+  BIBLIOTECA:      { fill: "rgba(6, 182, 212, 0.18)", stroke: "#0891b2" },
+  AUDITORIO:       { fill: "rgba(34, 197, 94, 0.18)", stroke: "#16a34a" },
+  SALA_REUNION:    { fill: "rgba(217, 70, 239, 0.18)", stroke: "#c026d3" },
+  CARPINTERIA:     { fill: "transparent", stroke: "#ea580c" },
+  VENTANA:         { fill: "transparent", stroke: "#0284c7" },
+  MOBILIARIO:      { fill: "transparent", stroke: "#64748b" },
+  EQUIPO:          { fill: "transparent", stroke: "#d97706" },
+  TEXTO:           { fill: "#0284c7", stroke: "transparent" },
+  DEFAULT:         { fill: "rgba(59, 130, 246, 0.15)", stroke: "#2563eb" },
+};
 
 interface Transform {
   scale: number;
@@ -80,6 +108,42 @@ export function DxfViewer() {
     });
     return `${rules.join(",\n")} { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }`;
   }, [activeHiddenKeys]);
+
+  // Modo de visualización: relleno sombreado traslúcido (usabilidad óptima), solo líneas de colores, o monocromático CAD
+  const [displayMode, setDisplayMode] = useState<DisplayMode>("colored-shaded");
+
+  const displayCss = useMemo(() => {
+    if (displayMode === "monochrome") return "";
+
+    const rules: string[] = [];
+
+    Object.entries(COLOR_PALETTE).forEach(([tipo, cfg]) => {
+      const escaped = tipo.replace(/"/g, '\\"');
+      const isText = tipo === "TEXTO";
+
+      if (displayMode === "colored-shaded") {
+        if (isText) {
+          rules.push(`[data-tipo="TEXTO"]:not(.selected), [data-texto]:not(.selected) { fill: ${cfg.stroke} !important; }`);
+        } else {
+          rules.push(`[data-tipo="${escaped}"]:not(.selected), [data-layer="${escaped}"]:not(.selected), [data-capa="${escaped}"]:not(.selected) {
+            fill: ${cfg.fill} !important;
+            stroke: ${cfg.stroke} !important;
+          }`);
+        }
+      } else if (displayMode === "colored-lines") {
+        if (isText) {
+          rules.push(`[data-tipo="TEXTO"]:not(.selected), [data-texto]:not(.selected) { fill: ${cfg.stroke} !important; }`);
+        } else {
+          rules.push(`[data-tipo="${escaped}"]:not(.selected), [data-layer="${escaped}"]:not(.selected), [data-capa="${escaped}"]:not(.selected) {
+            fill: transparent !important;
+            stroke: ${cfg.stroke} !important;
+          }`);
+        }
+      }
+    });
+
+    return rules.join("\n");
+  }, [displayMode]);
 
   // Aplicar directamente ocultación en DOM SVG en cada render o actualización de transform (pan/zoom)
   useEffect(() => {
@@ -469,19 +533,64 @@ export function DxfViewer() {
         {Math.round(transform.scale * 100)}%
       </div>
 
-      {/* Info del piso activo */}
-      <div className="absolute top-3 left-3 z-20 bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-1.5 text-xs shadow-md backdrop-blur-sm text-zinc-900 dark:text-zinc-100">
-        <span className="font-bold">
-          {activePiso.nombre ?? `Piso ${activePiso.numero}`}
-        </span>
-        {activePiso.archivo_dxf && (
-          <span className="ml-2 text-zinc-500 dark:text-zinc-400 font-mono text-[11px]">{activePiso.archivo_dxf}</span>
-        )}
-        {activePiso.items.length > 0 && (
-          <span className="ml-2 text-zinc-500 dark:text-zinc-400 font-medium">
-            · {activePiso.items.length} entidades
+      {/* Info del piso activo y Selector de Modo de Visualización */}
+      <div className="absolute top-3 left-3 z-20 flex flex-wrap items-center gap-2 max-w-[calc(100%-160px)]">
+        <div className="bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-1.5 text-xs shadow-md backdrop-blur-sm text-zinc-900 dark:text-zinc-100 flex items-center">
+          <span className="font-bold">
+            {activePiso.nombre ?? `Piso ${activePiso.numero}`}
           </span>
-        )}
+          {activePiso.archivo_dxf && (
+            <span className="ml-2 text-zinc-500 dark:text-zinc-400 font-mono text-[11px] hidden sm:inline">{activePiso.archivo_dxf}</span>
+          )}
+          {activePiso.items.length > 0 && (
+            <span className="ml-2 text-zinc-500 dark:text-zinc-400 font-medium hidden md:inline">
+              · {activePiso.items.length} entidades
+            </span>
+          )}
+        </div>
+
+        {/* Toggle de Modo de Color del Mapa */}
+        <div className="bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1 shadow-md backdrop-blur-sm flex items-center gap-1 text-xs">
+          <button
+            onClick={() => setDisplayMode("colored-shaded")}
+            className={cn(
+              "flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all text-xs font-semibold select-none",
+              displayMode === "colored-shaded"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            )}
+            title="Sombreado Suave: Áreas de recintos coloreadas con relleno traslúcido + bordes por capa"
+          >
+            <Palette className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Sombreado</span>
+          </button>
+          <button
+            onClick={() => setDisplayMode("colored-lines")}
+            className={cn(
+              "flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all text-xs font-semibold select-none",
+              displayMode === "colored-lines"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            )}
+            title="Solo Líneas: Trazos coloreados por capa sin relleno"
+          >
+            <Paintbrush className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Líneas</span>
+          </button>
+          <button
+            onClick={() => setDisplayMode("monochrome")}
+            className={cn(
+              "flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-all text-xs font-semibold select-none",
+              displayMode === "monochrome"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            )}
+            title="CAD Técnico: Blanco y negro estándar LibreCAD"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Monocromo</span>
+          </button>
+        </div>
       </div>
 
       {/* Leyenda de capas con control de visibilidad */}
@@ -509,8 +618,9 @@ export function DxfViewer() {
         onTouchEnd={onTouchEnd}
         onClick={handleSvgClick}
       >
-        {/* Reglas CSS para capas ocultas que persisten durante Pan/Zoom */}
+        {/* Reglas CSS para capas ocultas y estilo de visualización que persisten durante Pan/Zoom */}
         {hiddenCss && <style dangerouslySetInnerHTML={{ __html: hiddenCss }} />}
+        {displayCss && <style dangerouslySetInnerHTML={{ __html: displayCss }} />}
 
         <div
           ref={svgWrapperRef}
@@ -525,6 +635,7 @@ export function DxfViewer() {
           }}
         >
           {hiddenCss && <style dangerouslySetInnerHTML={{ __html: hiddenCss }} />}
+          {displayCss && <style dangerouslySetInnerHTML={{ __html: displayCss }} />}
           <div dangerouslySetInnerHTML={{ __html: activePiso.svg_data }} />
         </div>
       </div>
@@ -671,8 +782,8 @@ function LayerLegend({ items, hiddenTypes, onToggleType, onToggleAll }: LayerLeg
                     isHidden ? "opacity-30 border-dashed" : "opacity-100"
                   )}
                   style={{
-                    background: LEGEND_COLORS[tipo] ?? LEGEND_COLORS.DEFAULT,
-                    borderColor: LEGEND_BORDER[tipo] ?? LEGEND_BORDER.DEFAULT,
+                    background: COLOR_PALETTE[tipo]?.stroke ?? "#2563eb",
+                    borderColor: COLOR_PALETTE[tipo]?.stroke ?? "#2563eb",
                   }}
                 />
                 <span
