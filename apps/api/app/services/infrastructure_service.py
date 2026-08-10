@@ -307,7 +307,7 @@ class InfrastructureService:
 
         if scope_id:
             try:
-                target_uuid = uuid.UUID(str(scope_id).strip("/"))
+                target_uuid = uuid.UUID(scope_id.strip("/"))
             except (ValueError, AttributeError):
                 pass
 
@@ -463,13 +463,15 @@ class InfrastructureService:
             parsed_perim = _safe_float(perim_m)
             tipo = item.tipo or "DEFAULT"
 
-            # Determinar si el elemento es un recinto / espacio funcional
-            is_non_space = tipo in ("TEXTO", "COTA", "CARPINTERIA", "MOBILIARIO", "EQUIPO")
-            has_valid_area = parsed_area is not None and parsed_area >= 0.1
-            has_room_name = item.nombre is not None and len(item.nombre.strip()) > 0 and not is_non_space
+            # Elementos estructurales o secundarios que no constituyen recintos/espacios funcionales
+            NON_ROOM_TYPES = {"PARED", "COLUMNA", "CARPINTERIA", "VENTANA", "MOBILIARIO", "EQUIPO", "TEXTO", "COTA", "PROYECCION"}
+            is_structural_or_meta = tipo in NON_ROOM_TYPES
             is_known_room = tipo in ROOM_TYPES or tipo in ("DEFAULT", "AREA")
+            has_valid_area = parsed_area is not None and parsed_area >= 0.1
+            has_room_name = item.nombre is not None and len(item.nombre.strip()) > 0 and not is_structural_or_meta
 
-            is_recinto = not is_non_space and (is_known_room or has_valid_area or has_room_name)
+            # Es recinto si no es estructural y (es un tipo de ambiente reconocido, o tiene área m² válida, o nombre)
+            is_recinto = not is_structural_or_meta and (is_known_room or has_valid_area or has_room_name)
 
             if tipo not in category_stats:
                 category_stats[tipo] = {
@@ -480,10 +482,10 @@ class InfrastructureService:
 
             category_stats[tipo]["cantidad"] += 1
 
-            # Sumar superficie si es un área válida y no un elemento secundario
+            # Sumar superficie si es un área válida y no un elemento estructural/decorativo
             if parsed_area and parsed_area > 0:
                 category_stats[tipo]["area"] += parsed_area
-                if not is_non_space and (is_known_room or has_valid_area):
+                if not is_structural_or_meta and (is_known_room or has_valid_area):
                     total_area += parsed_area
 
             if is_recinto:

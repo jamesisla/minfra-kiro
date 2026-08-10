@@ -366,8 +366,30 @@ export function ReportsView() {
       )}
 
       {error && (
-        <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-semibold text-center">
-          {error}
+        <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-semibold text-center flex flex-col items-center gap-2">
+          <span>{error}</span>
+          <button
+            onClick={loadReportData}
+            className="px-3 py-1.5 bg-destructive text-destructive-foreground rounded-lg text-xs font-medium hover:opacity-90 transition-opacity flex items-center gap-1.5 shadow-sm"
+          >
+            <RotateCw className="w-3.5 h-3.5" /> Reintentar Carga
+          </button>
+        </div>
+      )}
+
+      {!loading && !error && !report && (
+        <div className="flex-1 flex flex-col items-center justify-center min-h-[300px] text-center p-8 space-y-3 bg-card border border-border rounded-xl shadow-sm">
+          <PieChart className="w-10 h-10 text-muted-foreground/60 animate-pulse mx-auto" />
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-foreground">Sin datos de reporte cargados</h3>
+            <p className="text-xs text-muted-foreground">Presione el botón para consultar las métricas de la infraestructura.</p>
+          </div>
+          <button
+            onClick={loadReportData}
+            className="px-4 py-2 bg-primary text-primary-foreground text-xs font-semibold rounded-xl shadow hover:bg-primary/90 transition-colors inline-flex items-center gap-2"
+          >
+            <RotateCw className="w-4 h-4" /> Cargar Reporte
+          </button>
         </div>
       )}
 
