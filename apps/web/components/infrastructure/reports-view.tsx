@@ -121,7 +121,8 @@ export function ReportsView() {
 
   // Cargar reporte de la API (re-ejecutar cuando cambia scope, scopeId, authToken, o cuando se sube/actualiza un piso)
   const loadReportData = () => {
-    if (!authToken) return;
+    const token = authToken || (typeof window !== "undefined" ? localStorage.getItem("minfra-token") : null);
+    if (!token) return;
     setLoading(true);
     setError(null);
 
@@ -129,12 +130,13 @@ export function ReportsView() {
     if (scopeId) queryParams.set("scope_id", scopeId);
 
     apiClient
-      .get<ReportSummary>(`/api/v1/infrastructure/reports?${queryParams.toString()}`, { token: authToken })
+      .get<ReportSummary>(`/api/v1/infrastructure/reports?${queryParams.toString()}`, { token })
       .then((data) => {
         setReport(data);
         setLoading(false);
       })
       .catch((err) => {
+        console.error("Error al cargar reporte:", err);
         setError(err.message || "Error al cargar los datos del reporte.");
         setLoading(false);
       });

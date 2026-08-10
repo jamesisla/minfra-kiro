@@ -256,19 +256,19 @@ class InfrastructureService:
                 meta = dict(entity.metadata) if entity.metadata else {}
                 meta["svg_element"] = entity.svg_element
 
-                nombre_clean = str(entity.nombre)[:490] if entity.nombre is not None else None
-                capa_clean = str(entity.capa)[:240] if entity.capa is not None else None
-                tipo_clean = str(entity.tipo or "DEFAULT")[:90]
+                nombre_clean = entity.nombre[:490] if entity.nombre is not None else None
+                capa_clean = entity.capa[:240] if entity.capa is not None else None
+                tipo_clean = (entity.tipo or "DEFAULT")[:90]
 
                 item = PlanoItem(
                     piso_id=piso_id,
                     tipo=tipo_clean,
                     nombre=nombre_clean,
                     capa=capa_clean,
-                    x=float(entity.x) if entity.x is not None else None,
-                    y=float(entity.y) if entity.y is not None else None,
-                    ancho=float(entity.ancho) if entity.ancho is not None else None,
-                    alto=float(entity.alto) if entity.alto is not None else None,
+                    x=entity.x if entity.x is not None else None,
+                    y=entity.y if entity.y is not None else None,
+                    ancho=entity.ancho if entity.ancho is not None else None,
+                    alto=entity.alto if entity.alto is not None else None,
                     metadata_extra=json.dumps(meta, ensure_ascii=False, default=str),
                 )
                 self.db.add(item)
@@ -464,12 +464,12 @@ class InfrastructureService:
             tipo = item.tipo or "DEFAULT"
 
             # Determinar si el elemento es un recinto / espacio funcional
-            is_room_type = tipo in ROOM_TYPES
-            has_valid_area = parsed_area is not None and parsed_area > 0
-            is_structural_or_meta = tipo in ("PARED", "COLUMNA", "TEXTO", "COTA", "CARPINTERIA", "MOBILIARIO", "EQUIPO", "DEFAULT")
-            has_room_name = item.nombre is not None and len(item.nombre.strip()) > 0 and tipo != "TEXTO"
+            is_non_space = tipo in ("TEXTO", "COTA", "CARPINTERIA", "MOBILIARIO", "EQUIPO")
+            has_valid_area = parsed_area is not None and parsed_area >= 0.1
+            has_room_name = item.nombre is not None and len(item.nombre.strip()) > 0 and not is_non_space
+            is_known_room = tipo in ROOM_TYPES or tipo in ("DEFAULT", "AREA")
 
-            is_recinto = is_room_type or (has_valid_area and not is_structural_or_meta) or has_room_name
+            is_recinto = not is_non_space and (is_known_room or has_valid_area or has_room_name)
 
             if tipo not in category_stats:
                 category_stats[tipo] = {
@@ -480,10 +480,10 @@ class InfrastructureService:
 
             category_stats[tipo]["cantidad"] += 1
 
-            # Sumar superficie (evitar sumar perímetros de pared si no son áreas de recintos)
+            # Sumar superficie si es un área válida y no un elemento secundario
             if parsed_area and parsed_area > 0:
                 category_stats[tipo]["area"] += parsed_area
-                if is_room_type or (has_valid_area and not is_structural_or_meta):
+                if not is_non_space and (is_known_room or has_valid_area):
                     total_area += parsed_area
 
             if is_recinto:
