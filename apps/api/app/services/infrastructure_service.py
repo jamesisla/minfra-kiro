@@ -4,6 +4,7 @@ Orquesta sedes, edificios, pisos y procesamiento de DXF.
 """
 import json
 import uuid
+from typing import Any
 
 from fastapi import HTTPException, status
 from sqlalchemy import delete, select
@@ -365,6 +366,12 @@ class InfrastructureService:
             "DEFAULT": "General",
         }
 
+        ROOM_TYPES = {
+            "SALA", "OFICINA", "LABORATORIO", "BAÑO", "PASILLO",
+            "ESCALERA", "ASCENSOR", "SALA_SERVIDORES", "DEPOSITO",
+            "COMEDOR", "BIBLIOTECA", "AUDITORIO", "SALA_REUNION", "AREA"
+        }
+
         category_stats: dict[str, dict] = {}
         items_detail: list[ItemReportDetail] = []
         total_area = 0.0
@@ -404,8 +411,16 @@ class InfrastructureService:
 
             parsed_area = _safe_float(area_m2)
             parsed_perim = _safe_float(perim_m)
-
             tipo = item.tipo or "DEFAULT"
+
+            # Determinar si el elemento es un recinto / espacio funcional
+            is_room_type = tipo in ROOM_TYPES
+            has_valid_area = parsed_area is not None and parsed_area > 0
+            is_structural_or_meta = tipo in ("PARED", "COLUMNA", "TEXTO", "COTA", "CARPINTERIA", "MOBILIARIO", "EQUIPO", "DEFAULT")
+            has_room_name = item.nombre is not None and len(item.nombre.strip()) > 0 and tipo != "TEXTO"
+
+            is_recinto = is_room_type or (has_valid_area and not is_structural_or_meta) or has_room_name
+
             if tipo not in category_stats:
                 category_stats[tipo] = {
                     "label": TYPE_LABELS.get(tipo, tipo.title()),
@@ -414,23 +429,37 @@ class InfrastructureService:
                 }
 
             category_stats[tipo]["cantidad"] += 1
+
+            # Sumar superficie (evitar sumar perímetros de pared si no son áreas de recintos)
             if parsed_area and parsed_area > 0:
                 category_stats[tipo]["area"] += parsed_area
-                total_area += parsed_area
+                if is_room_type or (has_valid_area and not is_structural_or_meta):
+                    total_area += parsed_area
 
-            total_recintos += 1
+            if is_recinto:
+                total_recintos += 1
 
-            items_detail.append(ItemReportDetail(
-                id=item.id,
-                nombre=item.nombre,
-                tipo=tipo,
-                capa=item.capa,
-                area_m2=round(parsed_area, 2) if parsed_area is not None else None,
-                perimetro_m=round(parsed_perim, 2) if parsed_perim is not None else None,
-                sede_nombre=sede.nombre,
-                edificio_nombre=edif.nombre,
-                piso_nombre=piso.nombre or f"Piso {piso.numero}",
-            ))
+            # Agregar a items_detail solo si es un recinto o elemento con área o nombre relevante
+            if is_recinto or has_valid_area or item.nombre:
+                items_detail.append(ItemReportDetail(
+                    id=item.id,
+                    nombre=item.nombre,
+                    tipo=tipo,
+                    capa=item.capa,
+                    area_m2=round(parsed_area, 2) if parsed_area is not None else None,
+                    perimetro_m=round(parsed_perim, 2) if parsed_perim is not None else None,
+                    sede_nombre=sede.nombre,
+                    edificio_nombre=edif.nombre,
+                    piso_nombre=piso.nombre or f"Piso {piso.numero}",
+                ))
+
+        # Ordenar items_detail: primero recintos con nombre y área m², luego por área descendente
+        items_detail.sort(
+            key=lambda x: (
+                0 if x.nombre and x.tipo in ROOM_TYPES else (1 if x.tipo in ROOM_TYPES else 2),
+                -(x.area_m2 or 0.0)
+            )
+        )
 
         cat_list: list[CategoryReport] = []
         for tipo, data in sorted(category_stats.items(), key=lambda x: x[1]["area"], reverse=True):
