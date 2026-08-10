@@ -111,6 +111,7 @@ bash scripts/dev.sh
 - [`docs/architecture/README.md`](docs/architecture/README.md) — decisiones de arquitectura (ADR)
 - [`docs/ai-context/`](docs/ai-context/) — glosario, reglas de negocio y modelo de datos para IA
 - [`docs/setup/local-dev.md`](docs/setup/local-dev.md) — guía detallada de entorno local
+- [`docs/setup/production-deploy.md`](docs/setup/production-deploy.md) — guía completa de despliegue en producción (v4.0.0)
 - [`.claude/CLAUDE.md`](.claude/CLAUDE.md) — contexto del proyecto para agentes IA
 
 ## Convenciones
