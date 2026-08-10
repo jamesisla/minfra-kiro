@@ -211,8 +211,8 @@ export function DxfViewer() {
       const effectiveW = isSwapped ? svgH : svgW;
       const effectiveH = isSwapped ? svgW : svgH;
 
-      // Aprovechamiento máximo del 96% del contenedor de la aplicación
-      const scale = Math.min((width * 0.96) / effectiveW, (height * 0.96) / effectiveH);
+      // Aprovechamiento máximo del 98% del área del contenedor de la aplicación
+      const scale = Math.min((width * 0.98) / effectiveW, (height * 0.98) / effectiveH);
       const translateX = (width - svgW * scale) / 2;
       const translateY = (height - svgH * scale) / 2;
 
@@ -229,9 +229,11 @@ export function DxfViewer() {
     });
   }, [fitToContainer]);
 
-  // Autodetectar orientación óptima (horizontal) y centrar aprovechando el espacio de la app al cargar o cambiar piso
+  // Autodetectar orientación inicial (horizontal/vertical) solo al seleccionar o cargar un NUEVO piso
+  const activePisoId = activePiso?.id;
   useEffect(() => {
-    if (!activePiso?.svg_data) return;
+    if (!activePisoId || !activePiso?.svg_data) return;
+
     const timer = setTimeout(() => {
       const el = containerRef.current;
       if (!el) return;
@@ -245,7 +247,7 @@ export function DxfViewer() {
         const isSvgLandscape = svgW > svgH;
 
         let autoRot = 0;
-        // Si el contenedor es panorámico (horizontal) y el plano es vertical (o viceversa), orientar a 90° para ocupar el máximo espacio
+        // Si el visor es panorámico (horizontal) y el plano es vertical, orientarlo inicialmente a 90° horizontal para maximizar espacio
         if ((isContainerLandscape && isSvgPortrait) || (isContainerPortrait && isSvgLandscape)) {
           autoRot = 90;
         }
@@ -256,8 +258,11 @@ export function DxfViewer() {
         fitToContainer(0);
       }
     }, 60);
+
     return () => clearTimeout(timer);
-  }, [activePiso?.id, activePiso?.svg_data, getSvgDimensions, fitToContainer]);
+    // Solo disparar cuando cambia el id del piso activo, preservando la rotación manual del usuario durante la sesión
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePisoId]);
 
   // Listener para ajustar automáticamente al redimensionar la ventana o contenedor
   useEffect(() => {
