@@ -41,12 +41,13 @@ alembic upgrade head || true
 echo "⚡ Compilando frontend (Next.js)..."
 cd "$ROOT_DIR/apps/web"
 rm -rf .next node_modules/.cache
-pnpm build
+export NODE_OPTIONS="--max-old-space-size=1536"
+pnpm build || npm run build
 
 # 5. Reiniciar servicios
 echo "🔄 Reiniciando servicios..."
+sudo systemctl restart sdd-api || true
 pm2 restart all || true
-sudo systemctl restart sdd-api
 sudo systemctl reload nginx || true
 
 echo "✅ ¡Despliegue completado exitosamente!"
