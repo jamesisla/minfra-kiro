@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ZoomIn, ZoomOut, Maximize2, RotateCcw, Eye, EyeOff, Layers, Palette, Paintbrush, Sparkles } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize2, RotateCcw, RotateCw, Eye, EyeOff, Layers, Palette, Paintbrush, Sparkles } from "lucide-react";
 import { useInfrastructureStore, type PlanoItem } from "@/lib/stores/infrastructure-store";
 import { cn } from "@/lib/utils";
 
@@ -59,7 +59,12 @@ export function DxfViewer() {
     translateX: 0,
     translateY: 0,
   });
+  const [rotation, setRotation] = useState<number>(0);
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
+
+  const rotatePlan = useCallback(() => {
+    setRotation((prev) => (prev + 90) % 360);
+  }, []);
 
   // Control de capas ocultas/visibles
   const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
@@ -485,7 +490,7 @@ export function DxfViewer() {
     );
   }
 
-  const cssTransform = `translate(${transform.translateX}px, ${transform.translateY}px) scale(${transform.scale})`;
+  const cssTransform = `translate(${transform.translateX}px, ${transform.translateY}px) scale(${transform.scale}) rotate(${rotation}deg)`;
   const svgDims = getSvgDimensions();
 
   return (
@@ -495,16 +500,28 @@ export function DxfViewer() {
         <button
           onClick={zoomIn}
           className="w-8 h-8 bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-lg flex items-center justify-center text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shadow-md backdrop-blur-sm"
-          title="Acercar"
+          title="Acercar (+)"
         >
           <ZoomIn className="w-4 h-4" />
         </button>
         <button
           onClick={zoomOut}
           className="w-8 h-8 bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-lg flex items-center justify-center text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shadow-md backdrop-blur-sm"
-          title="Alejar"
+          title="Alejar (-)"
         >
           <ZoomOut className="w-4 h-4" />
+        </button>
+        <button
+          onClick={rotatePlan}
+          className="w-8 h-8 bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-lg flex items-center justify-center text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shadow-md backdrop-blur-sm relative"
+          title={`Girar plano 90° (Ángulo actual: ${rotation}°)`}
+        >
+          <RotateCw className="w-4 h-4" />
+          {rotation > 0 && (
+            <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[9px] font-bold px-1 rounded-full shadow-sm">
+              {rotation}°
+            </span>
+          )}
         </button>
         <button
           onClick={fitToContainer}
@@ -514,17 +531,21 @@ export function DxfViewer() {
           <Maximize2 className="w-4 h-4" />
         </button>
         <button
-          onClick={() => setTransform({ scale: 1, translateX: 0, translateY: 0 })}
+          onClick={() => {
+            setTransform({ scale: 1, translateX: 0, translateY: 0 });
+            setRotation(0);
+          }}
           className="w-8 h-8 bg-white/95 dark:bg-zinc-900/95 border border-zinc-200 dark:border-zinc-800 rounded-lg flex items-center justify-center text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shadow-md backdrop-blur-sm"
-          title="Restablecer"
+          title="Restablecer vista y rotación"
         >
           <RotateCcw className="w-4 h-4" />
         </button>
       </div>
 
       {/* Info de escala */}
-      <div className="absolute bottom-3 right-3 z-20 bg-white/90 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-md px-2 py-1 text-xs font-mono font-semibold text-zinc-700 dark:text-zinc-300 shadow-sm backdrop-blur-sm">
-        {Math.round(transform.scale * 100)}%
+      <div className="absolute bottom-3 right-3 z-20 bg-white/90 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 rounded-md px-2 py-1 text-xs font-mono font-semibold text-zinc-700 dark:text-zinc-300 shadow-sm backdrop-blur-sm flex items-center gap-1.5">
+        <span>{Math.round(transform.scale * 100)}%</span>
+        {rotation > 0 && <span className="text-primary font-bold">· {rotation}°</span>}
       </div>
 
       {/* Info del piso activo y Selector de Modo de Visualización */}
@@ -553,7 +574,7 @@ export function DxfViewer() {
                 ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
             )}
-            title="Sombreado Suave: Áreas de recintos coloreadas con relleno traslúcido + bordes por capa"
+            title="Sombreado: Relleno traslúcido suave por capas (Máxima usabilidad)"
           >
             <Palette className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Sombreado</span>
@@ -620,7 +641,7 @@ export function DxfViewer() {
           ref={svgWrapperRef}
           style={{
             transform: cssTransform,
-            transformOrigin: "0 0",
+            transformOrigin: "center center",
             position: "absolute",
             top: 0,
             left: 0,
