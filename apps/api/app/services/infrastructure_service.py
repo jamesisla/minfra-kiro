@@ -7,7 +7,7 @@ import uuid
 from typing import Any
 
 from fastapi import HTTPException, status
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.infrastructure import Edificio, Piso, PlanoItem, Sede
@@ -337,9 +337,22 @@ class InfrastructureService:
                     if sede_obj:
                         scope_name = f"{sede_obj.nombre} › {edif_obj.nombre} › {piso_label}"
 
-        # Query de recintos (PlanoItems)
+        # Query optimizada de recintos (selecciona columnas especificas para evitar sobrecarga de objetos ORM)
         stmt = (
-            select(PlanoItem, Piso, Edificio, Sede)
+            select(
+                PlanoItem.id,
+                PlanoItem.tipo,
+                PlanoItem.nombre,
+                PlanoItem.capa,
+                PlanoItem.metadata_extra,
+                Piso.id.label("piso_id"),
+                Piso.nombre.label("piso_nombre"),
+                Piso.numero.label("piso_numero"),
+                Edificio.id.label("edificio_id"),
+                Edificio.nombre.label("edificio_nombre"),
+                Sede.id.label("sede_id"),
+                Sede.nombre.label("sede_nombre"),
+            )
             .join(Piso, PlanoItem.piso_id == Piso.id)
             .join(Edificio, Piso.edificio_id == Edificio.id)
             .join(Sede, Edificio.sede_id == Sede.id)
@@ -361,10 +374,10 @@ class InfrastructureService:
         res = await self.db.execute(stmt)
         rows = res.all()
 
-        # Conteos exactos de la infraestructura según el alcance (incluso si no hay planos subidos)
-        sedes_count_stmt = select(Sede).where(Sede.deleted_at.is_(None))
-        edifs_count_stmt = select(Edificio).where(Edificio.deleted_at.is_(None))
-        pisos_count_stmt = select(Piso).where(Piso.deleted_at.is_(None))
+        # Conteos exactos ultra-rapidos usando COUNT en la base de datos
+        sedes_count_stmt = select(func.count(Sede.id)).where(Sede.deleted_at.is_(None))
+        edifs_count_stmt = select(func.count(Edificio.id)).where(Edificio.deleted_at.is_(None))
+        pisos_count_stmt = select(func.count(Piso.id)).where(Piso.deleted_at.is_(None))
 
         if scope_clean == "sede" and target_uuid:
             sedes_count_stmt = sedes_count_stmt.where(Sede.id == target_uuid)
@@ -388,9 +401,9 @@ class InfrastructureService:
         res_edifs = await self.db.execute(edifs_count_stmt)
         res_pisos = await self.db.execute(pisos_count_stmt)
 
-        total_sedes_cnt = len(res_sedes.scalars().all())
-        total_edifs_cnt = len(res_edifs.scalars().all())
-        total_pisos_cnt = len(res_pisos.scalars().all())
+        total_sedes_cnt = res_sedes.scalar() or 0
+        total_edifs_cnt = res_edifs.scalar() or 0
+        total_pisos_cnt = res_pisos.scalar() or 0
 
         TYPE_LABELS = {
             "PARED": "Muros y Estructura",
@@ -443,16 +456,16 @@ class InfrastructureService:
             except (ValueError, TypeError):
                 return None
 
-        for item, piso, edif, sede in rows:
-            sedes_set.add(sede.id)
-            edificios_set.add(edif.id)
-            pisos_set.add(piso.id)
+        for item_id, item_tipo, item_nombre, item_capa, item_metadata_extra, piso_id, piso_nombre, piso_numero, edif_id, edif_nombre, sede_id, sede_nombre in rows:
+            sedes_set.add(sede_id)
+            edificios_set.add(edif_id)
+            pisos_set.add(piso_id)
 
             area_m2 = None
             perim_m = None
-            if item.metadata_extra:
+            if item_metadata_extra:
                 try:
-                    meta = json.loads(item.metadata_extra)
+                    meta = json.loads(item_metadata_extra)
                     if isinstance(meta, dict):
                         area_m2 = meta.get("area_m2")
                         perim_m = meta.get("perimetro_m")
@@ -461,14 +474,14 @@ class InfrastructureService:
 
             parsed_area = _safe_float(area_m2)
             parsed_perim = _safe_float(perim_m)
-            tipo = item.tipo or "DEFAULT"
+            tipo = item_tipo or "DEFAULT"
 
             # Elementos estructurales o secundarios que no constituyen recintos/espacios funcionales
             NON_ROOM_TYPES = {"PARED", "COLUMNA", "CARPINTERIA", "VENTANA", "MOBILIARIO", "EQUIPO", "TEXTO", "COTA", "PROYECCION"}
             is_structural_or_meta = tipo in NON_ROOM_TYPES
             is_known_room = tipo in ROOM_TYPES
             has_valid_area = parsed_area is not None and parsed_area >= 1.0
-            has_room_name = item.nombre is not None and len(item.nombre.strip()) > 0 and not is_structural_or_meta
+            has_room_name = item_nombre is not None and len(item_nombre.strip()) > 0 and not is_structural_or_meta
 
             # Es recinto si no es un elemento estructural/gráfico y (es tipo recinto conocido o polígono general con área m² >= 1.0)
             is_recinto = not is_structural_or_meta and (is_known_room or ((tipo in ("DEFAULT", "AREA")) and (has_valid_area or has_room_name)))
@@ -491,15 +504,15 @@ class InfrastructureService:
             if is_recinto:
                 total_recintos += 1
                 items_detail.append(ItemReportDetail(
-                    id=item.id,
-                    nombre=item.nombre,
+                    id=item_id,
+                    nombre=item_nombre,
                     tipo=tipo,
-                    capa=item.capa,
+                    capa=item_capa,
                     area_m2=round(parsed_area, 2) if parsed_area is not None else None,
                     perimetro_m=round(parsed_perim, 2) if parsed_perim is not None else None,
-                    sede_nombre=sede.nombre,
-                    edificio_nombre=edif.nombre,
-                    piso_nombre=piso.nombre or f"Piso {piso.numero}",
+                    sede_nombre=sede_nombre,
+                    edificio_nombre=edif_nombre,
+                    piso_nombre=piso_nombre or f"Piso {piso_numero}",
                 ))
 
         # Ordenar items_detail: primero recintos con nombre y área m², luego por área descendente
