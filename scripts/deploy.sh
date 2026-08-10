@@ -47,7 +47,15 @@ pnpm build || npm run build
 # 5. Reiniciar servicios
 echo "🔄 Reiniciando servicios..."
 sudo systemctl restart sdd-api || true
-pm2 restart all || true
+
+cd "$ROOT_DIR/apps/web"
+if pm2 list 2>/dev/null | grep -q "sdd-web"; then
+  pm2 restart sdd-web || pm2 restart all
+else
+  pm2 start npm --name "sdd-web" -- start || pm2 start pnpm --name "sdd-web" -- start
+  pm2 save || true
+fi
+
 sudo systemctl reload nginx || true
 
 echo "✅ ¡Despliegue completado exitosamente!"
