@@ -4,7 +4,7 @@ Sedes → Edificios → Pisos → Planos DXF.
 """
 import uuid
 
-from fastapi import APIRouter, File, UploadFile, status
+from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
 from app.core.dependencies import CurrentUser, DbSession
 from app.schemas.infrastructure import (
@@ -247,7 +247,15 @@ async def get_reports(
     """
     Retorna métricas y reporte consolidado o filtrado por Sede, Edificio o Piso.
     """
-    service = InfrastructureService(db)
-    return await service.get_reports(scope=scope, scope_id=scope_id)
+    try:
+        service = InfrastructureService(db)
+        return await service.get_reports(scope=scope, scope_id=scope_id)
+    except Exception as e:
+        import logging
+        logging.error(f"Error en get_reports: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al procesar reporte: {str(e)}"
+        )
 
 
