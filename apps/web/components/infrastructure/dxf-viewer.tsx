@@ -490,8 +490,13 @@ export function DxfViewer() {
     );
   }
 
-  const cssTransform = `translate(${transform.translateX}px, ${transform.translateY}px) scale(${transform.scale}) rotate(${rotation}deg)`;
   const svgDims = getSvgDimensions();
+  const cx = svgDims.svgW / 2;
+  const cy = svgDims.svgH / 2;
+  const cssTransform =
+    rotation === 0
+      ? `translate(${transform.translateX}px, ${transform.translateY}px) scale(${transform.scale})`
+      : `translate(${transform.translateX}px, ${transform.translateY}px) scale(${transform.scale}) translate(${cx}px, ${cy}px) rotate(${rotation}deg) translate(${-cx}px, ${-cy}px)`;
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden relative">
@@ -641,7 +646,7 @@ export function DxfViewer() {
           ref={svgWrapperRef}
           style={{
             transform: cssTransform,
-            transformOrigin: "center center",
+            transformOrigin: "0 0",
             position: "absolute",
             top: 0,
             left: 0,
