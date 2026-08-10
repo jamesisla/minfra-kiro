@@ -34,7 +34,7 @@ export const COLOR_PALETTE: Record<string, { fill: string; stroke: string }> = {
   VENTANA:         { fill: "transparent", stroke: "#0284c7" },
   MOBILIARIO:      { fill: "transparent", stroke: "#64748b" },
   EQUIPO:          { fill: "transparent", stroke: "#d97706" },
-  TEXTO:           { fill: "#0284c7", stroke: "transparent" },
+  TEXTO:           { fill: "#0ea5e9", stroke: "#0ea5e9" },
   DEFAULT:         { fill: "rgba(59, 130, 246, 0.15)", stroke: "#2563eb" },
 };
 
@@ -121,24 +121,18 @@ export function DxfViewer() {
       const escaped = tipo.replace(/"/g, '\\"');
       const isText = tipo === "TEXTO";
 
-      if (displayMode === "colored-shaded") {
-        if (isText) {
-          rules.push(`[data-tipo="TEXTO"]:not(.selected), [data-texto]:not(.selected) { fill: ${cfg.stroke} !important; }`);
-        } else {
-          rules.push(`[data-tipo="${escaped}"]:not(.selected), [data-layer="${escaped}"]:not(.selected), [data-capa="${escaped}"]:not(.selected) {
-            fill: ${cfg.fill} !important;
-            stroke: ${cfg.stroke} !important;
-          }`);
-        }
+      if (isText) {
+        rules.push(`[data-tipo="TEXTO"]:not(.selected), text.dxf-entity:not(.selected) { fill: ${cfg.fill} !important; opacity: 1 !important; }`);
+      } else if (displayMode === "colored-shaded") {
+        rules.push(`[data-tipo="${escaped}"]:not(.selected), [data-layer="${escaped}"]:not(.selected), [data-capa="${escaped}"]:not(.selected) {
+          fill: ${cfg.fill} !important;
+          stroke: ${cfg.stroke} !important;
+        }`);
       } else if (displayMode === "colored-lines") {
-        if (isText) {
-          rules.push(`[data-tipo="TEXTO"]:not(.selected), [data-texto]:not(.selected) { fill: ${cfg.stroke} !important; }`);
-        } else {
-          rules.push(`[data-tipo="${escaped}"]:not(.selected), [data-layer="${escaped}"]:not(.selected), [data-capa="${escaped}"]:not(.selected) {
-            fill: transparent !important;
-            stroke: ${cfg.stroke} !important;
-          }`);
-        }
+        rules.push(`[data-tipo="${escaped}"]:not(.selected), [data-layer="${escaped}"]:not(.selected), [data-capa="${escaped}"]:not(.selected) {
+          fill: transparent !important;
+          stroke: ${cfg.stroke} !important;
+        }`);
       }
     });
 
