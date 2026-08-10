@@ -62,10 +62,6 @@ export function DxfViewer() {
   const [rotation, setRotation] = useState<number>(0);
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
 
-  const rotatePlan = useCallback(() => {
-    setRotation((prev) => (prev + 90) % 360);
-  }, []);
-
   // Control de capas ocultas/visibles
   const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
 
@@ -198,30 +194,70 @@ export function DxfViewer() {
     return { svgW, svgH };
   }, [activePiso]);
 
-  const fitToContainer = useCallback(() => {
-    const el = containerRef.current;
-    if (!el || !activePiso) return;
-    const { width, height } = el.getBoundingClientRect();
-    if (width === 0 || height === 0) return;
+  const fitToContainer = useCallback(
+    (targetRotation?: number) => {
+      const el = containerRef.current;
+      if (!el || !activePiso) return;
+      const { width, height } = el.getBoundingClientRect();
+      if (width === 0 || height === 0) return;
 
-    setContainerSize({ w: width, h: height });
-    const { svgW, svgH } = getSvgDimensions();
+      setContainerSize({ w: width, h: height });
+      const { svgW, svgH } = getSvgDimensions();
+      if (svgW === 0 || svgH === 0) return;
 
-    const scale = Math.min((width * 0.95) / svgW, (height * 0.95) / svgH);
-    const translateX = (width - svgW * scale) / 2;
-    const translateY = (height - svgH * scale) / 2;
+      const currentRot = targetRotation !== undefined ? targetRotation : rotation;
+      const isSwapped = currentRot === 90 || currentRot === 270;
 
-    setTransform({ scale, translateX, translateY });
-  }, [activePiso, getSvgDimensions]);
+      const effectiveW = isSwapped ? svgH : svgW;
+      const effectiveH = isSwapped ? svgW : svgH;
 
-  // Centrar e igualar margen inmediatamente al cargar o guardar un piso
+      // Aprovechamiento máximo del 96% del contenedor de la aplicación
+      const scale = Math.min((width * 0.96) / effectiveW, (height * 0.96) / effectiveH);
+      const translateX = (width - svgW * scale) / 2;
+      const translateY = (height - svgH * scale) / 2;
+
+      setTransform({ scale, translateX, translateY });
+    },
+    [activePiso, getSvgDimensions, rotation]
+  );
+
+  const rotatePlan = useCallback(() => {
+    setRotation((prev) => {
+      const next = (prev + 90) % 360;
+      fitToContainer(next);
+      return next;
+    });
+  }, [fitToContainer]);
+
+  // Autodetectar orientación óptima (horizontal) y centrar aprovechando el espacio de la app al cargar o cambiar piso
   useEffect(() => {
     if (!activePiso?.svg_data) return;
     const timer = setTimeout(() => {
-      fitToContainer();
-    }, 50);
+      const el = containerRef.current;
+      if (!el) return;
+      const { width, height } = el.getBoundingClientRect();
+      const { svgW, svgH } = getSvgDimensions();
+
+      if (width > 0 && height > 0 && svgW > 0 && svgH > 0) {
+        const isContainerLandscape = width > height;
+        const isSvgPortrait = svgH > svgW;
+        const isContainerPortrait = height > width;
+        const isSvgLandscape = svgW > svgH;
+
+        let autoRot = 0;
+        // Si el contenedor es panorámico (horizontal) y el plano es vertical (o viceversa), orientar a 90° para ocupar el máximo espacio
+        if ((isContainerLandscape && isSvgPortrait) || (isContainerPortrait && isSvgLandscape)) {
+          autoRot = 90;
+        }
+
+        setRotation(autoRot);
+        fitToContainer(autoRot);
+      } else {
+        fitToContainer(0);
+      }
+    }, 60);
     return () => clearTimeout(timer);
-  }, [activePiso?.id, activePiso?.svg_data, fitToContainer]);
+  }, [activePiso?.id, activePiso?.svg_data, getSvgDimensions, fitToContainer]);
 
   // Listener para ajustar automáticamente al redimensionar la ventana o contenedor
   useEffect(() => {
