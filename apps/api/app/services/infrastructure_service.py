@@ -301,6 +301,34 @@ class InfrastructureService:
         """
         Calcula reporte consolidado o filtrado por Sede, Edificio o Piso.
         """
+        scope_clean = (scope or "total").lower()
+        scope_name = "Total General"
+        target_uuid = None
+
+        if scope_id:
+            try:
+                target_uuid = uuid.UUID(str(scope_id).strip("/"))
+            except (ValueError, AttributeError):
+                pass
+
+        sede_obj = None
+        edif_obj = None
+        piso_obj = None
+
+        if scope_clean == "sede" and target_uuid:
+            sede_obj = await self.sede_repo.get(target_uuid)
+            if sede_obj:
+                scope_name = f"Sede: {sede_obj.nombre}"
+        elif scope_clean == "edificio" and target_uuid:
+            edif_obj = await self.edificio_repo.get(target_uuid)
+            if edif_obj:
+                scope_name = f"Edificio: {edif_obj.nombre}"
+        elif scope_clean == "piso" and target_uuid:
+            piso_obj = await self.piso_repo.get(target_uuid)
+            if piso_obj:
+                scope_name = f"Piso {piso_obj.numero}" + (f" ({piso_obj.nombre})" if piso_obj.nombre else "")
+
+        # Query de recintos (PlanoItems)
         stmt = (
             select(PlanoItem, Piso, Edificio, Sede)
             .join(Piso, PlanoItem.piso_id == Piso.id)
@@ -314,33 +342,42 @@ class InfrastructureService:
             )
         )
 
-        scope_clean = (scope or "total").lower()
-        scope_name = "Total General"
-        target_uuid = None
-        if scope_id:
-            try:
-                target_uuid = uuid.UUID(scope_id.strip("/"))
-            except ValueError:
-                pass
-
         if scope_clean == "sede" and target_uuid:
             stmt = stmt.where(Sede.id == target_uuid)
-            sede_obj = await self.sede_repo.get(target_uuid)
-            if sede_obj:
-                scope_name = f"Sede: {sede_obj.nombre}"
         elif scope_clean == "edificio" and target_uuid:
             stmt = stmt.where(Edificio.id == target_uuid)
-            edif_obj = await self.edificio_repo.get(target_uuid)
-            if edif_obj:
-                scope_name = f"Edificio: {edif_obj.nombre}"
         elif scope_clean == "piso" and target_uuid:
             stmt = stmt.where(Piso.id == target_uuid)
-            piso_obj = await self.piso_repo.get(target_uuid)
-            if piso_obj:
-                scope_name = f"Piso {piso_obj.numero}" + (f" ({piso_obj.nombre})" if piso_obj.nombre else "")
 
         res = await self.db.execute(stmt)
         rows = res.all()
+
+        # Conteos exactos de la infraestructura según el alcance (incluso si no hay planos subidos)
+        sedes_count_stmt = select(Sede).where(Sede.deleted_at.is_(None))
+        edifs_count_stmt = select(Edificio).where(Edificio.deleted_at.is_(None))
+        pisos_count_stmt = select(Piso).where(Piso.deleted_at.is_(None))
+
+        if scope_clean == "sede" and target_uuid:
+            sedes_count_stmt = sedes_count_stmt.where(Sede.id == target_uuid)
+            edifs_count_stmt = edifs_count_stmt.where(Edificio.sede_id == target_uuid)
+            pisos_count_stmt = pisos_count_stmt.join(Edificio, Piso.edificio_id == Edificio.id).where(Edificio.sede_id == target_uuid)
+        elif scope_clean == "edificio" and target_uuid:
+            edifs_count_stmt = edifs_count_stmt.where(Edificio.id == target_uuid)
+            pisos_count_stmt = pisos_count_stmt.where(Piso.edificio_id == target_uuid)
+            if edif_obj:
+                sedes_count_stmt = sedes_count_stmt.where(Sede.id == edif_obj.sede_id)
+        elif scope_clean == "piso" and target_uuid:
+            pisos_count_stmt = pisos_count_stmt.where(Piso.id == target_uuid)
+            if piso_obj:
+                edifs_count_stmt = edifs_count_stmt.where(Edificio.id == piso_obj.edificio_id)
+
+        res_sedes = await self.db.execute(sedes_count_stmt)
+        res_edifs = await self.db.execute(edifs_count_stmt)
+        res_pisos = await self.db.execute(pisos_count_stmt)
+
+        total_sedes_cnt = len(res_sedes.scalars().all())
+        total_edifs_cnt = len(res_edifs.scalars().all())
+        total_pisos_cnt = len(res_pisos.scalars().all())
 
         TYPE_LABELS = {
             "PARED": "Muros y Estructura",
@@ -478,9 +515,9 @@ class InfrastructureService:
             scope_name=scope_name,
             total_area_m2=round(total_area, 2),
             total_recintos=total_recintos,
-            total_sedes=len(sedes_set),
-            total_edificios=len(edificios_set),
-            total_pisos=len(pisos_set),
+            total_sedes=total_sedes_cnt,
+            total_edificios=total_edifs_cnt,
+            total_pisos=total_pisos_cnt,
             categorias=cat_list,
             items_detalle=items_detail,
         )
