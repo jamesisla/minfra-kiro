@@ -115,9 +115,14 @@ export function ReportsView() {
   const [report, setReport] = useState<ReportSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCatFilter, setSelectedCatFilter] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(100);
+
+  // Restablecer limite de paginacion al cambiar filtros
+  useEffect(() => {
+    setVisibleCount(100);
+  }, [searchQuery, selectedCatFilter, report]);
 
   // Cargar reporte de la API (re-ejecutar cuando cambia scope, scopeId, authToken, o cuando se sube/actualiza un piso)
   const loadReportData = () => {
@@ -628,7 +633,7 @@ export function ReportsView() {
                       </td>
                     </tr>
                   ) : (
-                    filteredItems.map((item) => (
+                    filteredItems.slice(0, visibleCount).map((item) => (
                       <tr key={item.id} className="hover:bg-secondary/40 transition-colors">
                         <td className="p-2.5 font-semibold text-foreground">
                           {item.nombre || <span className="text-muted-foreground italic font-normal">Sin nombre</span>}
@@ -656,6 +661,17 @@ export function ReportsView() {
                 </tbody>
               </table>
             </div>
+
+            {filteredItems.length > visibleCount && (
+              <div className="flex justify-center pt-2">
+                <button
+                  onClick={() => setVisibleCount((prev) => prev + 100)}
+                  className="px-4 py-1.5 bg-secondary hover:bg-secondary/80 text-foreground text-xs font-semibold rounded-lg border border-border transition-colors"
+                >
+                  Mostrar más recintos (mostrando {visibleCount} de {filteredItems.length})
+                </button>
+              </div>
+            )}
           </div>
         </>
       )}

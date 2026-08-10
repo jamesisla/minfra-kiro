@@ -466,12 +466,12 @@ class InfrastructureService:
             # Elementos estructurales o secundarios que no constituyen recintos/espacios funcionales
             NON_ROOM_TYPES = {"PARED", "COLUMNA", "CARPINTERIA", "VENTANA", "MOBILIARIO", "EQUIPO", "TEXTO", "COTA", "PROYECCION"}
             is_structural_or_meta = tipo in NON_ROOM_TYPES
-            is_known_room = tipo in ROOM_TYPES or tipo in ("DEFAULT", "AREA")
-            has_valid_area = parsed_area is not None and parsed_area >= 0.1
+            is_known_room = tipo in ROOM_TYPES
+            has_valid_area = parsed_area is not None and parsed_area >= 1.0
             has_room_name = item.nombre is not None and len(item.nombre.strip()) > 0 and not is_structural_or_meta
 
-            # Es recinto si no es estructural y (es un tipo de ambiente reconocido, o tiene área m² válida, o nombre)
-            is_recinto = not is_structural_or_meta and (is_known_room or has_valid_area or has_room_name)
+            # Es recinto si no es un elemento estructural/gráfico y (es tipo recinto conocido o polígono general con área m² >= 1.0)
+            is_recinto = not is_structural_or_meta and (is_known_room or ((tipo in ("DEFAULT", "AREA")) and (has_valid_area or has_room_name)))
 
             if tipo not in category_stats:
                 category_stats[tipo] = {
@@ -485,14 +485,11 @@ class InfrastructureService:
             # Sumar superficie si es un área válida y no un elemento estructural/decorativo
             if parsed_area and parsed_area > 0:
                 category_stats[tipo]["area"] += parsed_area
-                if not is_structural_or_meta and (is_known_room or has_valid_area):
+                if is_recinto:
                     total_area += parsed_area
 
             if is_recinto:
                 total_recintos += 1
-
-            # Agregar a items_detail solo si es un recinto o elemento con área o nombre relevante
-            if is_recinto or has_valid_area or item.nombre:
                 items_detail.append(ItemReportDetail(
                     id=item.id,
                     nombre=item.nombre,
