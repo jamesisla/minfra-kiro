@@ -323,10 +323,19 @@ class InfrastructureService:
             edif_obj = await self.edificio_repo.get(target_uuid)
             if edif_obj:
                 scope_name = f"Edificio: {edif_obj.nombre}"
+                sede_obj = await self.sede_repo.get(edif_obj.sede_id)
+                if sede_obj:
+                    scope_name = f"{sede_obj.nombre} › Edificio: {edif_obj.nombre}"
         elif scope_clean == "piso" and target_uuid:
             piso_obj = await self.piso_repo.get(target_uuid)
             if piso_obj:
-                scope_name = f"Piso {piso_obj.numero}" + (f" ({piso_obj.nombre})" if piso_obj.nombre else "")
+                piso_label = piso_obj.nombre if piso_obj.nombre else f"Piso {piso_obj.numero}"
+                scope_name = f"Piso {piso_obj.numero}"
+                edif_obj = await self.edificio_repo.get(piso_obj.edificio_id)
+                if edif_obj:
+                    sede_obj = await self.sede_repo.get(edif_obj.sede_id)
+                    if sede_obj:
+                        scope_name = f"{sede_obj.nombre} › {edif_obj.nombre} › {piso_label}"
 
         # Query de recintos (PlanoItems)
         stmt = (
@@ -360,7 +369,9 @@ class InfrastructureService:
         if scope_clean == "sede" and target_uuid:
             sedes_count_stmt = sedes_count_stmt.where(Sede.id == target_uuid)
             edifs_count_stmt = edifs_count_stmt.where(Edificio.sede_id == target_uuid)
-            pisos_count_stmt = pisos_count_stmt.join(Edificio, Piso.edificio_id == Edificio.id).where(Edificio.sede_id == target_uuid)
+            pisos_count_stmt = pisos_count_stmt.join(Edificio, Piso.edificio_id == Edificio.id).where(
+                Edificio.sede_id == target_uuid, Edificio.deleted_at.is_(None)
+            )
         elif scope_clean == "edificio" and target_uuid:
             edifs_count_stmt = edifs_count_stmt.where(Edificio.id == target_uuid)
             pisos_count_stmt = pisos_count_stmt.where(Piso.edificio_id == target_uuid)
@@ -370,6 +381,8 @@ class InfrastructureService:
             pisos_count_stmt = pisos_count_stmt.where(Piso.id == target_uuid)
             if piso_obj:
                 edifs_count_stmt = edifs_count_stmt.where(Edificio.id == piso_obj.edificio_id)
+                if edif_obj:
+                    sedes_count_stmt = sedes_count_stmt.where(Sede.id == edif_obj.sede_id)
 
         res_sedes = await self.db.execute(sedes_count_stmt)
         res_edifs = await self.db.execute(edifs_count_stmt)

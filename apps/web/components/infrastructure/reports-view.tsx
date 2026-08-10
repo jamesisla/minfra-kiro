@@ -87,7 +87,30 @@ export function ReportsView() {
   } = useInfrastructureStore();
 
   const [scope, setScope] = useState<"total" | "sede" | "edificio" | "piso">("total");
-  const [scopeId, setScopeId] = useState<string | null>(null);
+
+  // Obtener la Sede, Edificio y Piso activos en cascada de forma jerárquica
+  const currentSede = useMemo(() => {
+    if (!tree?.sedes?.length) return null;
+    return tree.sedes.find((s) => s.id === selectedSedeId) || tree.sedes[0];
+  }, [tree, selectedSedeId]);
+
+  const currentEdificio = useMemo(() => {
+    if (!currentSede?.edificios?.length) return null;
+    return currentSede.edificios.find((e) => e.id === selectedEdificioId) || currentSede.edificios[0];
+  }, [currentSede, selectedEdificioId]);
+
+  const currentPiso = useMemo(() => {
+    if (!currentEdificio?.pisos?.length) return null;
+    return currentEdificio.pisos.find((p) => p.id === selectedPisoId) || currentEdificio.pisos[0];
+  }, [currentEdificio, selectedPisoId]);
+
+  // ID correspondiente al alcance (scope) activo
+  const scopeId = useMemo(() => {
+    if (scope === "sede") return currentSede?.id || null;
+    if (scope === "edificio") return currentEdificio?.id || null;
+    if (scope === "piso") return currentPiso?.id || null;
+    return null;
+  }, [scope, currentSede?.id, currentEdificio?.id, currentPiso?.id]);
 
   const [report, setReport] = useState<ReportSummary | null>(null);
   const [loading, setLoading] = useState(false);
@@ -95,19 +118,6 @@ export function ReportsView() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCatFilter, setSelectedCatFilter] = useState<string | null>(null);
-
-  // Sincronizar selección del árbol cuando cambia el alcance
-  useEffect(() => {
-    if (scope === "sede") {
-      setScopeId(selectedSedeId || tree?.sedes[0]?.id || null);
-    } else if (scope === "edificio") {
-      setScopeId(selectedEdificioId || tree?.sedes[0]?.edificios[0]?.id || null);
-    } else if (scope === "piso") {
-      setScopeId(selectedPisoId || tree?.sedes[0]?.edificios[0]?.pisos[0]?.id || null);
-    } else {
-      setScopeId(null);
-    }
-  }, [scope, selectedSedeId, selectedEdificioId, selectedPisoId, tree]);
 
   // Cargar reporte de la API (re-ejecutar cuando cambia scope, scopeId, authToken, o cuando se sube/actualiza un piso)
   const loadReportData = () => {
@@ -271,7 +281,7 @@ export function ReportsView() {
       </div>
 
       {/* Selectores Específicos según alcance */}
-      {scope !== "total" && tree && (
+      {scope !== "total" && tree && tree.sedes.length > 0 && (
         <div className="flex flex-wrap items-center gap-3 bg-card/60 p-3 rounded-xl border border-border/80">
           <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
             <SlidersHorizontal className="w-3.5 h-3.5" /> Seleccionar:
@@ -280,12 +290,20 @@ export function ReportsView() {
           {/* Sede selector */}
           {(scope === "sede" || scope === "edificio" || scope === "piso") && (
             <select
-              value={selectedSedeId || ""}
+              value={currentSede?.id || ""}
               onChange={(e) => {
-                selectSede(e.target.value);
-                setScopeId(e.target.value);
+                const targetSedeId = e.target.value;
+                selectSede(targetSedeId);
+                const targetSede = tree.sedes.find((s) => s.id === targetSedeId);
+                if (targetSede?.edificios?.length) {
+                  const firstEd = targetSede.edificios[0];
+                  selectEdificio(firstEd.id);
+                  if (firstEd.pisos?.length && authToken) {
+                    selectPiso(firstEd.pisos[0].id, authToken);
+                  }
+                }
               }}
-              className="bg-background border border-border text-foreground text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+              className="bg-background border border-border text-foreground text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary font-medium"
             >
               {tree.sedes.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -298,41 +316,40 @@ export function ReportsView() {
           {/* Edificio selector */}
           {(scope === "edificio" || scope === "piso") && (
             <select
-              value={selectedEdificioId || ""}
+              value={currentEdificio?.id || ""}
               onChange={(e) => {
-                selectEdificio(e.target.value);
-                setScopeId(e.target.value);
+                const targetEdId = e.target.value;
+                selectEdificio(targetEdId);
+                const targetEd = currentSede?.edificios?.find((ed) => ed.id === targetEdId);
+                if (targetEd?.pisos?.length && authToken) {
+                  selectPiso(targetEd.pisos[0].id, authToken);
+                }
               }}
-              className="bg-background border border-border text-foreground text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+              className="bg-background border border-border text-foreground text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary font-medium"
             >
-              {tree.sedes
-                .flatMap((s) => s.edificios)
-                .map((e) => (
-                  <option key={e.id} value={e.id}>
-                    Edificio: {e.nombre}
-                  </option>
-                ))}
+              {(currentSede?.edificios || []).map((e) => (
+                <option key={e.id} value={e.id}>
+                  Edificio: {e.nombre}
+                </option>
+              ))}
             </select>
           )}
 
           {/* Piso selector */}
           {scope === "piso" && (
             <select
-              value={selectedPisoId || ""}
+              value={currentPiso?.id || ""}
               onChange={(e) => {
-                if (authToken) selectPiso(e.target.value, authToken);
-                setScopeId(e.target.value);
+                const targetPisoId = e.target.value;
+                if (authToken) selectPiso(targetPisoId, authToken);
               }}
-              className="bg-background border border-border text-foreground text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+              className="bg-background border border-border text-foreground text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary font-medium"
             >
-              {tree.sedes
-                .flatMap((s) => s.edificios)
-                .flatMap((e) => e.pisos)
-                .map((p) => (
-                  <option key={p.id} value={p.id}>
-                    Piso {p.numero} {p.nombre ? `(${p.nombre})` : ""}
-                  </option>
-                ))}
+              {(currentEdificio?.pisos || []).map((p) => (
+                <option key={p.id} value={p.id}>
+                  Piso {p.numero} {p.nombre ? `(${p.nombre})` : ""}
+                </option>
+              ))}
             </select>
           )}
         </div>
