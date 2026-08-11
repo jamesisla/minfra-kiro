@@ -211,8 +211,8 @@ export function DxfViewer() {
       const effectiveW = isSwapped ? svgH : svgW;
       const effectiveH = isSwapped ? svgW : svgH;
 
-      // Aprovechamiento máximo del 98% del área del contenedor de la aplicación
-      const scale = Math.min((width * 0.98) / effectiveW, (height * 0.98) / effectiveH);
+      // Ajuste al 95% del contenedor visible de la aplicación
+      const scale = Math.min((width * 0.95) / effectiveW, (height * 0.95) / effectiveH);
       const translateX = (width - svgW * scale) / 2;
       const translateY = (height - svgH * scale) / 2;
 
@@ -229,40 +229,18 @@ export function DxfViewer() {
     });
   }, [fitToContainer]);
 
-  // Autodetectar orientación inicial (horizontal/vertical) solo al seleccionar o cargar un NUEVO piso
+  // Centrar e inicializar plano en su orientación natural (0°) al seleccionar o cargar un piso
   const activePisoId = activePiso?.id;
   useEffect(() => {
     if (!activePisoId || !activePiso?.svg_data) return;
 
     const timer = setTimeout(() => {
-      const el = containerRef.current;
-      if (!el) return;
-      const { width, height } = el.getBoundingClientRect();
-      const { svgW, svgH } = getSvgDimensions();
-
-      if (width > 0 && height > 0 && svgW > 0 && svgH > 0) {
-        const isContainerLandscape = width > height;
-        const isSvgPortrait = svgH > svgW;
-        const isContainerPortrait = height > width;
-        const isSvgLandscape = svgW > svgH;
-
-        let autoRot = 0;
-        // Si el visor es panorámico (horizontal) y el plano es vertical, orientarlo inicialmente a 90° horizontal para maximizar espacio
-        if ((isContainerLandscape && isSvgPortrait) || (isContainerPortrait && isSvgLandscape)) {
-          autoRot = 90;
-        }
-
-        setRotation(autoRot);
-        fitToContainer(autoRot);
-      } else {
-        fitToContainer(0);
-      }
+      setRotation(0);
+      fitToContainer(0);
     }, 60);
 
     return () => clearTimeout(timer);
-    // Solo disparar cuando cambia el id del piso activo, preservando la rotación manual del usuario durante la sesión
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePisoId]);
+  }, [activePisoId, activePiso?.svg_data, fitToContainer]);
 
   // Listener para ajustar automáticamente al redimensionar la ventana o contenedor
   useEffect(() => {
