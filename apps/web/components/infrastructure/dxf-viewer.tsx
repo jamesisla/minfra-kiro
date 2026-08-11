@@ -194,63 +194,6 @@ export function DxfViewer() {
     return { svgW, svgH };
   }, [activePiso]);
 
-  // Obtener cuadro delimitador (bounding box) real de la estructura del edificio (omitiendo margen de aire del DXF)
-  const getBuildingBounds = useCallback(() => {
-    const { svgW, svgH } = getSvgDimensions();
-    if (!activePiso) {
-      return { bW: svgW, bH: svgH, bCX: svgW / 2, bCY: svgH / 2 };
-    }
-
-    const gMinX = activePiso.min_x ?? 0;
-    const gMinY = activePiso.min_y ?? 0;
-    const gMaxY = activePiso.max_y ?? svgH;
-    const totalH = gMaxY - gMinY;
-
-    let minSx = Infinity, maxSx = -Infinity;
-    let minSy = Infinity, maxSy = -Infinity;
-    let count = 0;
-
-    if (activePiso.items && activePiso.items.length > 0) {
-      for (const item of activePiso.items) {
-        if (
-          item.x !== null &&
-          item.y !== null &&
-          item.ancho !== null &&
-          item.alto !== null &&
-          item.ancho > 0 &&
-          item.alto > 0
-        ) {
-          const sx1 = item.x - gMinX;
-          const sx2 = item.x + item.ancho - gMinX;
-          const sy1 = totalH - (item.y + item.alto - gMinY);
-          const sy2 = totalH - (item.y - gMinY);
-
-          minSx = Math.min(minSx, sx1);
-          maxSx = Math.max(maxSx, sx2);
-          minSy = Math.min(minSy, sy1);
-          maxSy = Math.max(maxSy, sy2);
-          count++;
-        }
-      }
-    }
-
-    if (count > 0 && minSx < maxSx && minSy < maxSy) {
-      const bW = maxSx - minSx;
-      const bH = maxSy - minSy;
-      const marginX = bW * 0.02;
-      const marginY = bH * 0.02;
-
-      return {
-        bW: bW + marginX * 2,
-        bH: bH + marginY * 2,
-        bCX: (minSx + maxSx) / 2,
-        bCY: (minSy + maxSy) / 2,
-      };
-    }
-
-    return { bW: svgW, bH: svgH, bCX: svgW / 2, bCY: svgH / 2 };
-  }, [activePiso, getSvgDimensions]);
-
   const fitToContainer = useCallback(
     (targetRotation?: number) => {
       const el = containerRef.current;
@@ -262,41 +205,20 @@ export function DxfViewer() {
       const { svgW, svgH } = getSvgDimensions();
       if (svgW === 0 || svgH === 0) return;
 
-      const { bW, bH, bCX, bCY } = getBuildingBounds();
-
       const currentRot = targetRotation !== undefined ? targetRotation : rotation;
       const isSwapped = currentRot === 90 || currentRot === 270;
 
-      const effectiveW = isSwapped ? bH : bW;
-      const effectiveH = isSwapped ? bW : bH;
+      const effectiveW = isSwapped ? svgH : svgW;
+      const effectiveH = isSwapped ? svgW : svgH;
 
-      // Aprovechamiento máximo del 96% del contenedor ajustado a la estructura física del edificio
-      const scale = Math.min((width * 0.96) / effectiveW, (height * 0.96) / effectiveH);
-
-      const svgCX = svgW / 2;
-      const svgCY = svgH / 2;
-      const dx = bCX - svgCX;
-      const dy = bCY - svgCY;
-
-      let rdx = dx;
-      let rdy = dy;
-      if (currentRot === 90) {
-        rdx = -dy;
-        rdy = dx;
-      } else if (currentRot === 180) {
-        rdx = -dx;
-        rdy = -dy;
-      } else if (currentRot === 270) {
-        rdx = dy;
-        rdy = -dx;
-      }
-
-      const translateX = width / 2 - scale * (svgCX + rdx);
-      const translateY = height / 2 - scale * (svgCY + rdy);
+      // Aprovechamiento máximo del 98% del área del contenedor de la aplicación
+      const scale = Math.min((width * 0.98) / effectiveW, (height * 0.98) / effectiveH);
+      const translateX = (width - svgW * scale) / 2;
+      const translateY = (height - svgH * scale) / 2;
 
       setTransform({ scale, translateX, translateY });
     },
-    [activePiso, getSvgDimensions, getBuildingBounds, rotation]
+    [activePiso, getSvgDimensions, rotation]
   );
 
   const rotatePlan = useCallback(() => {
@@ -307,7 +229,7 @@ export function DxfViewer() {
     });
   }, [fitToContainer]);
 
-  // Autodetectar orientación inicial (horizontal/vertical) según la estructura física del EDIFICIO
+  // Autodetectar orientación inicial (horizontal/vertical) solo al seleccionar o cargar un NUEVO piso
   const activePisoId = activePiso?.id;
   useEffect(() => {
     if (!activePisoId || !activePiso?.svg_data) return;
@@ -316,17 +238,17 @@ export function DxfViewer() {
       const el = containerRef.current;
       if (!el) return;
       const { width, height } = el.getBoundingClientRect();
-      const { bW, bH } = getBuildingBounds();
+      const { svgW, svgH } = getSvgDimensions();
 
-      if (width > 0 && height > 0 && bW > 0 && bH > 0) {
+      if (width > 0 && height > 0 && svgW > 0 && svgH > 0) {
         const isContainerLandscape = width > height;
-        const isBuildingPortrait = bH > bW;
+        const isSvgPortrait = svgH > svgW;
         const isContainerPortrait = height > width;
-        const isBuildingLandscape = bW > bH;
+        const isSvgLandscape = svgW > svgH;
 
         let autoRot = 0;
-        // Orientar inicialmente a 90° si el edificio es vertical y la pantalla es horizontal para ocupar el máximo espacio
-        if ((isContainerLandscape && isBuildingPortrait) || (isContainerPortrait && isBuildingLandscape)) {
+        // Si el visor es panorámico (horizontal) y el plano es vertical, orientarlo inicialmente a 90° horizontal para maximizar espacio
+        if ((isContainerLandscape && isSvgPortrait) || (isContainerPortrait && isSvgLandscape)) {
           autoRot = 90;
         }
 
@@ -338,6 +260,7 @@ export function DxfViewer() {
     }, 60);
 
     return () => clearTimeout(timer);
+    // Solo disparar cuando cambia el id del piso activo, preservando la rotación manual del usuario durante la sesión
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePisoId]);
 
