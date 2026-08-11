@@ -59,7 +59,16 @@ export function DxfViewer() {
     translateX: 0,
     translateY: 0,
   });
-  const [rotation, setRotation] = useState<number>(0);
+  const [rotation, setRotationState] = useState<number>(0);
+  const rotationRef = useRef<number>(0);
+
+  const setRotation = useCallback((val: number | ((prev: number) => number)) => {
+    setRotationState((prev) => {
+      const next = typeof val === "function" ? val(prev) : val;
+      rotationRef.current = next;
+      return next;
+    });
+  }, []);
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
 
   // Control de capas ocultas/visibles
@@ -205,7 +214,7 @@ export function DxfViewer() {
       const { svgW, svgH } = getSvgDimensions();
       if (svgW === 0 || svgH === 0) return;
 
-      const currentRot = targetRotation !== undefined ? targetRotation : rotation;
+      const currentRot = targetRotation !== undefined ? targetRotation : rotationRef.current;
       const isSwapped = currentRot === 90 || currentRot === 270;
 
       const effectiveW = isSwapped ? svgH : svgW;
@@ -218,29 +227,31 @@ export function DxfViewer() {
 
       setTransform({ scale, translateX, translateY });
     },
-    [activePiso, getSvgDimensions, rotation]
+    [activePiso, getSvgDimensions]
   );
 
   const rotatePlan = useCallback(() => {
-    setRotation((prev) => {
-      const next = (prev + 90) % 360;
-      fitToContainer(next);
-      return next;
-    });
-  }, [fitToContainer]);
+    const next = (rotationRef.current + 90) % 360;
+    setRotation(next);
+    fitToContainer(next);
+  }, [setRotation, fitToContainer]);
 
-  // Centrar e inicializar plano en su orientación natural (0°) al seleccionar o cargar un piso
+  // Centrar e inicializar plano en su orientación natural (0°) ÚNICAMENTE al cambiar de piso
   const activePisoId = activePiso?.id;
+  const prevPisoIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!activePisoId || !activePiso?.svg_data) return;
 
-    const timer = setTimeout(() => {
+    if (prevPisoIdRef.current !== activePisoId) {
+      prevPisoIdRef.current = activePisoId;
       setRotation(0);
-      fitToContainer(0);
-    }, 60);
-
-    return () => clearTimeout(timer);
-  }, [activePisoId, activePiso?.svg_data, fitToContainer]);
+      const timer = setTimeout(() => {
+        fitToContainer(0);
+      }, 60);
+      return () => clearTimeout(timer);
+    }
+  }, [activePisoId, activePiso?.svg_data, fitToContainer, setRotation]);
 
   // Listener para ajustar automáticamente al redimensionar la ventana o contenedor
   useEffect(() => {
