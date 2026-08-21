@@ -9,53 +9,52 @@ Transformar **MInfra** en un sistema **CAFM/IWMS (Computer-Aided Facility Manage
 
 | Módulo FM Tradicional | Aplicación e Impacto en la Universidad | Nivel de Prioridad |
 | :--- | :--- | :---: |
-| **1. Space Allocation & Internal Chargeback** *(Asignación e Imputación de Espacios)* | **Imputación de $m^2$ por Facultad/Carrera:** Distribución del costo operativo inmobiliario ($/m²) según los metros que ocupa cada Facultad (Ingeniería, Medicina, Derecho), permitiendo calcular la rentabilidad real de cada carrera. | **Alta** (Fase 2) |
-| **2. Visual CMMS & Mantenimiento Programado** *(Preventivo y Correctivo)* | **Rutinas en Recesos Académicos:** Programación de mantenimiento preventivo de laboratorios, climatización, ascensores y subestaciones durante vacaciones (Enero/Febrero/Julio) para cero interrupción de clases. | **Alta** (Fase 2) |
-| **3. Timetable Gap & "Ghost Rooms"** *(Auditoría de Ocupación Académica)* | **Salas Fantasma vs Capacidad Real:** Cruce entre el horario académico (Banner/SIRA) y el plano. Identifica aulas reservadas pero vacías en la práctica, liberando cupos sin necesidad de construir más m². | **Alta** (Fase 2) |
-| **4. Campus Wayfinding & Accesibilidad Universal** *(Navegación Táctil)* | **Inclusión y Bienvenida:** Trazado de rutas accesibles (rampas, ascensores habilitados) para estudiantes con movilidad reducida y visitas, cumpliendo normativas de inclusión educativa. | **Media** (Fase 3) |
-| **5. Compliance & Acreditación Institucional** *(CNA / ODUCAL / ISO)* | **Dossier Automático de Acreditación:** Generación en 1 clic de reportes de metros por alumno, capacidad de laboratorios de bioseguridad y aforos exigidos por agencias acreditadoras. | **Alta** (Fase 3) |
-| **6. Smart ESG & Eficiencia Energética** *(Sostenibilidad Campus)* | **Indicador EUI ($kWh/m^2$):** Medición del consumo eléctrico y de agua por edificio/piso. Integración con reglas de apagado automático de luces/climatización al finalizar bloques académicos. | **Media** (Fase 3) |
-| **7. Gestor de Arriendos & Espacios de Terceros** *(Lease Management)* | **Monetización de Infraestructura:** Control de espacios arrendados a terceros dentro del campus (cafeterías, fotocopiadoras, bancos, cajeros) y arriendo de auditorios/canchas en fines de semana. | **Baja** (Fase 4) |
+| **1. Space Management & Organizaciones** | **Jerarquía y Desacoplamiento CAD:** Control de Sedes, Edificios, Pisos y Espacios persistentes con vinculación de Unidades Organizacionales (Facultades/Departamentos). | **Alta** (Fase 1) |
+| **2. People & Occupancy Management** | **Personas y Responsables:** Asignación de puestos, custodios de recinto, líderes de emergencia y control de aforos/ocupación. | **Alta** (Fase 1) |
+| **3. Asset Tracking & QR Geolocalizado** | **Inventario de Bienes en SVG:** Control de mobiliario, equipos TI, climatización y laboratorios con trazabilidad y códigos QR. | **Alta** (Fase 2) |
+| **4. Document Management & Compliance** | **Expedientes de Infraestructura:** Títulos, permisos de edificación, certificados SEC de ascensores/gases, manuales y pólizas con alertas de vencimiento. | **Alta** (Fase 3) |
+| **5. Space Allocation & Chargeback** | **Imputación de $m^2$ por Facultad/Carrera:** Distribución del costo operativo inmobiliario ($/m²) según los metros que ocupa cada Facultad. | **Media** (Fase 4) |
+| **6. Compliance & Acreditación Institucional** | **Dossier Automático de Acreditación:** Generación de reportes de metros por alumno, capacidad de laboratorios y aforos exigidos (CNA/ISO). | **Alta** (Fase 4) |
 
 ---
 
-## 🗓️ Hoja de Ruta Actualizada por Fases
+## 🗓️ Hoja de Ruta de Módulos
 
 ```mermaid
 graph TD
-    subgraph Fase1 ["Fase 1: v4.1.0 (Actual - Visor DXF & Jerarquía)"]
-        F1_1["Jerarquía Espacial Multisede (Campus-Edificio-Piso-Recinto)"]
-        F1_2["Visor DXF/SVG Ultra-Preciso con Modos Visuales"]
-        F1_3["Reportes de m² Totales y Útiles por Piso"]
-        F1_4["Control de Giro de Planos 90° Estabilizado"]
+    subgraph Fase1 ["Fase 1: Núcleo Espacial & Personas"]
+        F1_1["Entidad Espacio permanente desacoplada de DXF"]
+        F1_2["Unidades Organizacionales (Facultades/Departamentos)"]
+        F1_3["Personas y Roles de Asignación (Responsable, Ocupante, Brigadista)"]
+        F1_4["Pestaña 'Personas' en Popup de Recinto y Búsqueda de Personal"]
     end
 
-    subgraph Fase2 ["Fase 2: v5.0.0 (FM Operativo: Activos & Incidencias)"]
-        F2_1["Ticketing Visual de Incidencias (QR en Puertas)"]
-        F2_2["Inventario de Activos Geolocalizado en SVG"]
-        F2_3["Asignación de m² por Facultad/Carrera (Chargeback)"]
-        F2_4["Auditoría de Ocupación Académica & Salas Fantasma"]
+    subgraph Fase2 ["Fase 2: Bienes / Activos Fijos"]
+        F2_1["Catálogo de Bienes (Código Patrimonial, Marca, Modelo, Serie, Estado)"]
+        F2_2["Geolocalización en SVG (Pines interactivos y Drag&Drop)"]
+        F2_3["Etiquetado y lectura con Códigos QR"]
+        F2_4["Trazabilidad e historial de traslados entre recintos"]
     end
 
-    subgraph Fase3 ["Fase 3: v6.0.0 (BI Ejecutivo, Acreditación & Wayfinding)"]
-        F3_1["Dashboard BI: FCI (Facility Condition Index) & $/m²"]
-        F3_2["Módulo de Acreditación Institucional Automática"]
-        F3_3["Rutas de Accesibilidad Universal (Wayfinding)"]
-        F3_4["Medición Energética EUI (kWh/m²)"]
+    subgraph Fase3 ["Fase 3: Documentos & Compliance"]
+        F3_1["Almacenamiento y categorización de archivos multi-nivel"]
+        F3_2["Control de vigencias y alertas de expiración (SEC, Incendio, Permisos)"]
+        F3_3["Visor integrado de PDF/planos técnicos en el visor CAD"]
+    end
+
+    subgraph Fase4 ["Fase 4: Analytics 360° & Facility Management"]
+        F4_1["Dossier automático de acreditación institucional"]
+        F4_2["Heatmaps temáticos en plano (Densidad, Ocupación, Facultad)"]
+        F4_3["Métricas de Space Chargeback ($/m² por unidad)"]
     end
 
     Fase1 --> Fase2
     Fase2 --> Fase3
+    Fase3 --> Fase4
 ```
 
 ---
 
-## 📑 Matriz de Valor por Rol en la Universidad
-
-* **Vicerrectoría de Administración y Finanzas:** Justificación de presupuestos de infraestructura basada en m² reales utilizados por carrera y ahorro energético.
-* **Comisión de Acreditación:** Obtención instantánea de evidencias de laboratorio, aforos e infraestructura exigidas por agencias nacionales/internacionales.
-* **Director de Operaciones / Mantención:** Reducción de tiempos de atención de fallas al visualizar incidentes marcados en rojo directamente en el plano del piso.
-* **Decanos y Directores de Escuela:** Visibilidad transparente de los metros cuadrados asignados a su facultad.
-
----
-*Documento actualizado en repositorios para consulta estratégica.*
+## 📑 Documento Detallado de Arquitectura
+Para consultar el detalle de modelos, tablas y consideraciones de despliegue en OCI e3micro (Ubuntu minimal), ver:
+[`docs/architecture/roadmap-fases-modulos.md`](docs/architecture/roadmap-fases-modulos.md).
