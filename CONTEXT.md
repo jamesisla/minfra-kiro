@@ -6,7 +6,7 @@
 
 ## 📌 1. Visión y Estado del Proyecto
 * **Proyecto:** **MInfra (CAD, Space Management & Facility Management Universitario)**
-* **Versión Actual:** `v4.2.0`
+* **Versión Actual:** `v4.3.0`
 * **Rama Principal:** `main` (Sincronizada con GitHub: `https://github.com/jamesisla/minfra-kiro.git`)
 * **Entorno de Despliegue:** Instancia **Oracle Cloud Infrastructure (OCI) e3micro** (Ubuntu Minimal, 1 vCPU, 1 GB RAM + 2GB Swap).
 
@@ -18,19 +18,19 @@
 minfra-kiro/
 ├── apps/
 │   ├── web/                     # Frontend Next.js 14 (App Router, Tailwind, Zustand)
-│   │   ├── app/                 # Páginas (Login con 1-click demo, Dashboard, Visor CAD)
-│   │   ├── components/          # dxf-viewer.tsx, item-info-popup.tsx (Tabs: Espacio, Personas, Bienes)
+│   │   ├── app/                 # Páginas (Login con 1-click demo, Dashboard, Visor CAD, Compliance)
+│   │   ├── components/          # dxf-viewer.tsx, item-info-popup.tsx (Tabs: Espacio, Personas, Bienes, Docs), compliance-view.tsx, pdf-preview-modal.tsx
 │   │   └── next.config.js       # Proxy interno rewrites (/api/:path* -> http://127.0.0.1:8000)
 │   └── api/                     # Backend FastAPI (Python 3.12, AsyncPG, Alembic, ezdxf)
 │       ├── app/
-│       │   ├── api/v1/routes/   # auth, infrastructure, organizations, people, spaces, assets
-│       │   ├── models/          # user, organization, person, infrastructure, asset
+│       │   ├── api/v1/routes/   # auth, infrastructure, organizations, people, spaces, assets, documents
+│       │   ├── models/          # user, organization, person, infrastructure, asset, document
 │       │   ├── repositories/    # Repositorios base y especializados con soft delete
-│       │   ├── schemas/         # Modelos Pydantic v2
-│       │   └── services/        # dxf_processor, infrastructure, organization, person, space, asset
-│       └── alembic/versions/    # Migraciones 0001 a 0004
+│       │   ├── schemas/         # Modelos Pydantic v2 (asset, document, space, person, etc.)
+│       │   └── services/        # dxf_processor, infrastructure, organization, person, space, asset, document_service
+│       └── alembic/versions/    # Migraciones 0001 a 0005
 ├── packages/
-│   └── shared-types/            # Tipos compartidos TypeScript (User, Espacio, Persona, Bien, etc.)
+│   └── shared-types/            # Tipos compartidos TypeScript (User, Espacio, Persona, Bien, Documento, etc.)
 ├── docs/
 │   ├── architecture/            # roadmap-fases-modulos.md (Plan estratégico completo)
 │   ├── ai-context/              # data-model.md (Diccionario ERD)
@@ -61,6 +61,13 @@ minfra-kiro/
 - **`BienMovimiento`:** Trazabilidad y auditoría de traslados de bienes entre recintos.
 - **Popup Interactivo:** Pestaña "Bienes" para ver y dar de alta equipamiento directamente en la sala.
 
+### ✅ Módulo 3 (Fase 3): Documentos & Cumplimiento Normativo (Compliance)
+- **`Documento`:** Repositorio documental multinivel (Sede, Edificio, Piso, Recinto, Bien).
+- **Tipos & Categorías:** Certificados SEC (Gas, Electricidad, Ascensores), Permisos Municipales de Edificación, Títulos de Dominio, Pólizas de Seguro contra Incendios/Sismos, Protocolos de Bioseguridad, Manuales/Garantías y Planos Técnicos.
+- **Semáforo de Vigencias:** Cálculo automático de estados de vigencia (`VIGENTE`, `POR_VENCER_60`, `POR_VENCER_30`, `VENCIDO`, `SIN_VENCIMIENTO`).
+- **Visor Rápido de PDF Embebido (`pdf-preview-modal.tsx`):** Previsualización en tiempo real sin descargar archivos.
+- **Panel Institucional de Compliance (`compliance-view.tsx`):** Matriz de control para acreditaciones CNA/ISO, alertas críticas y filtros por organismo emisor.
+
 ### ✅ Acceso Rápido & Conectividad OCI
 - **Login 1-Click Demo:** Botones directos `⚡ Admin Demo` (`admin@institucion.cl` / `Admin123!`) y `👤 Alumno Demo`.
 - **Doble Proxy:** `next.config.js` reenvía `/api/...` a FastAPI en `127.0.0.1:8000` para prevenir errores 502.
@@ -73,6 +80,7 @@ minfra-kiro/
 2. `0002_infrastructure_tables.py`: Tablas `sedes`, `edificios`, `pisos`, `plano_items`.
 3. `0003_espacios_personas_unidades.py`: Tablas `unidades_organizacionales`, `personas`, `espacios`, `espacio_personas`.
 4. `0004_bienes_activos.py`: Tablas `bienes` y `bien_movimientos`.
+5. `0005_documentos_compliance.py`: Tabla `documentos` (Compliance, certificados y semáforos).
 
 ---
 
@@ -90,16 +98,16 @@ En el servidor remoto en OCI:
 
 ---
 
-## 🚀 6. Próximo Paso en la Hoja de Ruta: FASE 3 (Documentos & Compliance)
+## 🚀 6. Próximo Paso en la Hoja de Ruta: FASE 4 (Facility Management 360° & Analytics)
 
 Cuando se retome el proyecto, el siguiente desarrollo planificado es:
-1. **Módulo de Documentos:**
-   - Tabla `documentos` polimórfica (asociable a Sede, Edificio, Piso, Recinto o Bien).
-   - Tipos de archivo: Títulos de dominio, permisos de edificación, certificados SEC de ascensores/gases, protocolos de bioseguridad, pólizas de seguro.
-   - Sistema de semáforo de vigencias (Vigente, Por Vencer a 30/60 días, Vencido).
-   - Visor rápido de PDFs integrado en el popup del recinto y panel general.
+1. **Analytics 360° & Space Chargeback:**
+   - Cruce integral de datos: Espacio + Personas + Bienes + Documentos de Compliance.
+   - Mapas de calor (Heatmaps) en el visor CAD (densidad de ocupación, distribución de facultades, estado operativo de activos).
+   - Métricas financieras de costo de ocupación ($\text{CLP}/m^2$) por unidad académica.
+   - Generación de Dossier automático para procesos de Acreditación Institucional (CNA/ISO).
 
 ---
 
 ## 💡 Prompt para Retomar Sesión
-> *"Hola, lee el archivo `CONTEXT.md` para retomar el proyecto MInfra v4.2.0. Estamos listos para comenzar con la Fase 3 (Módulo de Documentos y Alertas de Vencimiento)."*
+> *"Hola, lee el archivo `CONTEXT.md` para retomar el proyecto MInfra v4.3.0. Estamos listos para comenzar con la Fase 4 (Analytics 360° & Facility Management)."*

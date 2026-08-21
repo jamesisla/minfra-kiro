@@ -128,6 +128,61 @@ Autenticación y usuarios del sistema.
 | is_active | Boolean | Default true |
 | is_superuser | Boolean | Default false |
 
+### 10. `bienes` (Fase 2)
+Inventario de activos fijos y equipamiento físico geolocalizado en recintos.
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| id | UUID | PK |
+| codigo_patrimonial | String(100) | Único, indexado (ej: QR ACT-0042) |
+| nombre | String(255) | Requerido |
+| categoria | String(100) | MOBILIARIO, TI_COMPUTO, CLIMATIZACION, etc. |
+| marca, modelo, numero_serie | String(100) | Opcionales |
+| estado_operativo | String(50) | OPERATIVO, EN_MANTENCION, DE_BAJA, etc. |
+| valor_compra | Float | Opcional |
+| fecha_adquisicion, fecha_garantia | Date | Opcionales |
+| espacio_id | UUID | FK -> `espacios.id` (SET NULL) |
+| custodio_id | UUID | FK -> `personas.id` (SET NULL) |
+| pos_x, pos_y | Float | Coordenadas relativas en plano SVG |
+| metadata_extra | Text | JSON para especificaciones técnicas |
+
+### 11. `bien_movimientos` (Fase 2)
+Trazabilidad y auditoría de traslados de bienes entre recintos.
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| id | UUID | PK |
+| bien_id | UUID | FK -> `bienes.id` (CASCADE) |
+| espacio_origen_id | UUID | FK -> `espacios.id` (SET NULL) |
+| espacio_destino_id | UUID | FK -> `espacios.id` (SET NULL) |
+| persona_responsable_id | UUID | FK -> `personas.id` (SET NULL) |
+| fecha_traslado | DateTime | Timestamp del traslado |
+| motivo | Text | Opcional |
+
+### 12. `documentos` (Fase 3)
+Gestión documental institucional, cumplimiento normativo (Compliance), certificados SEC, pólizas y alertas de vencimiento.
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| id | UUID | PK |
+| nombre | String(255) | Requerido, indexado |
+| tipo_documento | String(100) | CERTIFICADO_SEC, PERMISO_EDIFICACION, TITULO_DOMINIO, POLIZA_SEGURO, etc. |
+| descripcion | Text | Opcional |
+| archivo_path | String(500) | Ruta local segura de almacenamiento |
+| archivo_nombre | String(255) | Nombre del archivo subido |
+| archivo_peso_bytes | BigInteger | Tamaño en bytes |
+| archivo_mime_type | String(100) | application/pdf, image/png, etc. |
+| fecha_emision | Date | Fecha de expedición |
+| fecha_vencimiento | Date | Indexada, base para semáforo de vigencias |
+| emisor_entidad | String(255) | Organismo emisor (ej: SEC, Municipalidad) |
+| numero_folio | String(100) | Código oficial / folio |
+| sede_id | UUID | FK -> `sedes.id` (CASCADE) |
+| edificio_id | UUID | FK -> `edificios.id` (CASCADE) |
+| piso_id | UUID | FK -> `pisos.id` (CASCADE) |
+| espacio_id | UUID | FK -> `espacios.id` (CASCADE) |
+| bien_id | UUID | FK -> `bienes.id` (CASCADE) |
+| metadata_extra | Text | JSON adicional |
+
 ---
 
 ## Diagrama Entidad-Relación
@@ -147,4 +202,14 @@ erDiagram
     ESPACIOS ||--o{ ESPACIO_PERSONAS : asignaciones
     PERSONAS ||--o{ ESPACIO_PERSONAS : asignaciones
     USERS ||--o| PERSONAS : cuenta_usuario
+
+    ESPACIOS ||--o{ BIENES : aloja
+    PERSONAS ||--o{ BIENES : custodia
+    BIENES ||--o{ BIEN_MOVIMIENTOS : historial
+
+    DOCUMENTOS }o--o| SEDES : aplica_a
+    DOCUMENTOS }o--o| EDIFICIOS : aplica_a
+    DOCUMENTOS }o--o| PISOS : aplica_a
+    DOCUMENTOS }o--o| ESPACIOS : aplica_a
+    DOCUMENTOS }o--o| BIENES : manual_garantia
 ```

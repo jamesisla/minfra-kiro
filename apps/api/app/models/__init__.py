@@ -11,3 +11,4 @@ from app.models.infrastructure import (  # noqa: F401
     PlanoItem,
 )
 from app.models.asset import Bien, BienMovimiento  # noqa: F401
+from app.models.document import Documento  # noqa: F401

@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from app.api.v1.routes import (
     assets,
     auth,
+    documents,
     health,
     infrastructure,
     organizations,
@@ -21,3 +22,4 @@ api_router.include_router(organizations.router)
 api_router.include_router(people.router)
 api_router.include_router(spaces.router)
 api_router.include_router(assets.router)
+api_router.include_router(documents.router)

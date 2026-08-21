@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { AppLayout } from "@/components/layouts/app-layout";
 import { DxfViewer } from "@/components/infrastructure/dxf-viewer";
 import { ReportsView } from "@/components/infrastructure/reports-view";
+import { ComplianceView } from "@/components/infrastructure/compliance-view";
 import { ItemInfoPopup } from "@/components/infrastructure/item-info-popup";
 import { useInfrastructureStore } from "@/lib/stores/infrastructure-store";
 
@@ -50,7 +51,13 @@ export default function AppPage() {
   return (
     <>
       <AppLayout onLogout={handleLogout}>
-        {activeTab === "reports" ? <ReportsView /> : <DxfViewer />}
+        {activeTab === "compliance" ? (
+          <ComplianceView />
+        ) : activeTab === "reports" ? (
+          <ReportsView />
+        ) : (
+          <DxfViewer />
+        )}
       </AppLayout>
       {/* Popup flotante — fuera del layout para no heredar overflow:hidden */}
       {activeTab === "viewer" && <ItemInfoPopup />}

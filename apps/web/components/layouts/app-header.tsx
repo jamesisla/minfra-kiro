@@ -1,6 +1,6 @@
 "use client";
 
-import { Moon, Sun, Building2, LogOut, Settings, Map, PieChart } from "lucide-react";
+import { Moon, Sun, Building2, LogOut, Settings, Map, PieChart, FileCheck } from "lucide-react";
 import { useTheme } from "@/components/providers/theme-provider";
 import { useInfrastructureStore } from "@/lib/stores/infrastructure-store";
 import { cn } from "@/lib/utils";
@@ -23,7 +23,7 @@ export function AppHeader({ onLogout }: AppHeaderProps) {
           <span className="font-semibold text-sm tracking-tight">MInfra</span>
         </div>
 
-        {/* Pestañas de Navegación Principal: Visor CAD vs Reportes */}
+        {/* Pestañas de Navegación Principal: Visor CAD vs Reportes vs Compliance */}
         <div className="flex items-center gap-1 bg-secondary/80 p-0.5 rounded-lg border border-border/60">
           <button
             onClick={() => setActiveTab("viewer")}
@@ -48,6 +48,18 @@ export function AppHeader({ onLogout }: AppHeaderProps) {
           >
             <PieChart className="w-3.5 h-3.5 text-emerald-500" />
             Reportes & Métricas
+          </button>
+          <button
+            onClick={() => setActiveTab("compliance")}
+            className={cn(
+              "px-2.5 py-1 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5",
+              activeTab === "compliance"
+                ? "bg-background text-foreground shadow-sm font-bold"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <FileCheck className="w-3.5 h-3.5 text-blue-500" />
+            Documentos & Compliance
           </button>
         </div>
       </div>

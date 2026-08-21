@@ -84,9 +84,9 @@ interface InfrastructureState {
   selectedItem: PlanoItem | null;
   selectedItemPosition: { x: number; y: number } | null;
 
-  // Pestaña activa (Visor CAD vs Reportes)
-  activeTab: "viewer" | "reports";
-  setActiveTab: (tab: "viewer" | "reports") => void;
+  // Pestaña activa (Visor CAD vs Reportes vs Compliance)
+  activeTab: "viewer" | "reports" | "compliance";
+  setActiveTab: (tab: "viewer" | "reports" | "compliance") => void;
 
   // Acciones
   setAuthToken: (token: string | null) => void;

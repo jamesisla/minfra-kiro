@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   X,
   Layers,
@@ -25,10 +25,20 @@ import {
   Tv,
   Armchair,
   FlaskConical,
+  FileText,
+  FileCheck,
+  Eye,
+  Download,
+  UploadCloud,
+  Clock,
+  AlertTriangle,
+  CheckCircle2,
 } from "lucide-react";
 import { useInfrastructureStore } from "@/lib/stores/infrastructure-store";
-import { apiClient } from "@/lib/api/client";
+import { apiClient, getApiUrl } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
+import { PdfPreviewModal } from "./pdf-preview-modal";
+import { Documento } from "@sdd/shared-types";
 
 const TYPE_LABELS: Record<string, string> = {
   PARED:           "Pared / Muro",
@@ -114,7 +124,7 @@ export function ItemInfoPopup() {
     authToken,
   } = useInfrastructureStore();
 
-  const [activeTab, setActiveTab] = useState<"general" | "personas" | "bienes">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "personas" | "bienes" | "documentos">("general");
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -150,6 +160,20 @@ export function ItemInfoPopup() {
   const [nuevoBienEstado, setNuevoBienEstado] = useState("OPERATIVO");
   const [addingBienLoading, setAddingBienLoading] = useState(false);
 
+  // Documentos State (Fase 3)
+  const [documentos, setDocumentos] = useState<Documento[]>([]);
+  const [loadingDocumentos, setLoadingDocumentos] = useState(false);
+  const [showAddDoc, setShowAddDoc] = useState(false);
+  const [nuevoDocNombre, setNuevoDocNombre] = useState("");
+  const [nuevoDocTipo, setNuevoDocTipo] = useState("CERTIFICADO_SEC");
+  const [nuevoDocFolio, setNuevoDocFolio] = useState("");
+  const [nuevoDocEmisor, setNuevoDocEmisor] = useState("");
+  const [nuevoDocVencimiento, setNuevoDocVencimiento] = useState("");
+  const [nuevoDocFile, setNuevoDocFile] = useState<File | null>(null);
+  const [addingDocLoading, setAddingDocLoading] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<Documento | null>(null);
+  const docFileInputRef = useRef<HTMLInputElement>(null);
+
   const fetchPeopleForSpace = useCallback(async (espacioId: string) => {
     if (!authToken) return;
     setLoadingPersonas(true);
@@ -182,6 +206,22 @@ export function ItemInfoPopup() {
     }
   }, [authToken]);
 
+  const fetchDocumentsForSpace = useCallback(async (espacioId: string) => {
+    if (!authToken) return;
+    setLoadingDocumentos(true);
+    try {
+      const data = await apiClient.get<Documento[]>(
+        `/api/v1/documents/espacio/${espacioId}`,
+        { token: authToken }
+      );
+      setDocumentos(data || []);
+    } catch {
+      setDocumentos([]);
+    } finally {
+      setLoadingDocumentos(false);
+    }
+  }, [authToken]);
+
   useEffect(() => {
     if (selectedItem) {
       setNombre(selectedItem.nombre ?? "");
@@ -190,6 +230,7 @@ export function ItemInfoPopup() {
       setActiveTab("general");
       setShowAddPersona(false);
       setShowAddBien(false);
+      setShowAddDoc(false);
 
       let meta: Record<string, any> = {};
       if (selectedItem.metadata_extra) {
@@ -206,12 +247,14 @@ export function ItemInfoPopup() {
       if (selectedItem.espacio_id) {
         fetchPeopleForSpace(selectedItem.espacio_id);
         fetchBienesForSpace(selectedItem.espacio_id);
+        fetchDocumentsForSpace(selectedItem.espacio_id);
       } else {
         setPersonas([]);
         setBienes([]);
+        setDocumentos([]);
       }
     }
-  }, [selectedItem, fetchPeopleForSpace, fetchBienesForSpace]);
+  }, [selectedItem, fetchPeopleForSpace, fetchBienesForSpace, fetchDocumentsForSpace]);
 
   if (!selectedItem) return null;
 
@@ -376,6 +419,55 @@ export function ItemInfoPopup() {
     }
   };
 
+  const handleAddDocumento = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!authToken || !nuevoDocNombre.trim() || !selectedItem.espacio_id) return;
+    setAddingDocLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("nombre", nuevoDocNombre.trim());
+      formData.append("tipo_documento", nuevoDocTipo);
+      formData.append("espacio_id", selectedItem.espacio_id);
+      if (nuevoDocFolio.trim()) formData.append("numero_folio", nuevoDocFolio.trim());
+      if (nuevoDocEmisor.trim()) formData.append("emisor_entidad", nuevoDocEmisor.trim());
+      if (nuevoDocVencimiento) formData.append("fecha_vencimiento", nuevoDocVencimiento);
+      if (nuevoDocFile) formData.append("file", nuevoDocFile);
+
+      const res = await fetch(`${getApiUrl()}/api/v1/documents/upload`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${authToken}` },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        throw new Error("Error al adjuntar documento");
+      }
+
+      setNuevoDocNombre("");
+      setNuevoDocTipo("CERTIFICADO_SEC");
+      setNuevoDocFolio("");
+      setNuevoDocEmisor("");
+      setNuevoDocVencimiento("");
+      setNuevoDocFile(null);
+      setShowAddDoc(false);
+      await fetchDocumentsForSpace(selectedItem.espacio_id);
+    } catch (err) {
+      console.error("Error al adjuntar documento:", err);
+    } finally {
+      setAddingDocLoading(false);
+    }
+  };
+
+  const handleRemoveDocumento = async (docId: string) => {
+    if (!authToken || !selectedItem.espacio_id) return;
+    try {
+      await apiClient.delete(`/api/v1/documents/${docId}`, { token: authToken });
+      await fetchDocumentsForSpace(selectedItem.espacio_id);
+    } catch (err) {
+      console.error("Error al eliminar documento:", err);
+    }
+  };
+
   return (
     <div
       className={cn(
@@ -481,6 +573,18 @@ export function ItemInfoPopup() {
             >
               <Package className="w-3 h-3" />
               <span>Bienes ({bienes.length})</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("documentos")}
+              className={cn(
+                "flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-semibold transition-colors",
+                activeTab === "documentos"
+                  ? "bg-white dark:bg-zinc-800 text-blue-600 dark:text-blue-400 shadow-sm border border-zinc-200 dark:border-zinc-700"
+                  : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
+              )}
+            >
+              <FileCheck className="w-3 h-3" />
+              <span>Docs ({documentos.length})</span>
             </button>
           </div>
         )}
@@ -882,7 +986,7 @@ export function ItemInfoPopup() {
             </div>
           )}
         </div>
-      ) : (
+      ) : activeTab === "bienes" ? (
         /* Pestaña: Bienes / Activos del Recinto (Fase 2) */
         <div className="p-4 space-y-3 text-xs bg-white dark:bg-zinc-950">
           <div className="flex items-center justify-between">
@@ -1071,6 +1175,241 @@ export function ItemInfoPopup() {
             </div>
           )}
         </div>
+      ) : (
+        /* Pestaña: Documentos & Compliance del Recinto (Fase 3) */
+        <div className="p-4 space-y-3 text-xs bg-white dark:bg-zinc-950">
+          <div className="flex items-center justify-between">
+            <h4 className="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5 text-xs">
+              <FileCheck className="w-3.5 h-3.5 text-blue-500" />
+              Documentos & Certificados
+            </h4>
+            {!showAddDoc && selectedItem.espacio_id && (
+              <button
+                onClick={() => setShowAddDoc(true)}
+                className="flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                <PlusCircle className="w-3 h-3" />
+                <span>Adjuntar doc</span>
+              </button>
+            )}
+          </div>
+
+          {showAddDoc ? (
+            <form
+              onSubmit={handleAddDocumento}
+              className="p-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg space-y-2"
+            >
+              <div>
+                <label className="block text-[10px] font-bold text-zinc-600 dark:text-zinc-400 mb-0.5">
+                  Nombre del Documento / Certificado
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={nuevoDocNombre}
+                  onChange={(e) => setNuevoDocNombre(e.target.value)}
+                  placeholder="Ej: Certificado SEC de Gases y Escape"
+                  className="w-full px-2 py-1 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded text-xs text-zinc-900 dark:text-zinc-100"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-600 dark:text-zinc-400 mb-0.5">
+                    Categoría
+                  </label>
+                  <select
+                    value={nuevoDocTipo}
+                    onChange={(e) => setNuevoDocTipo(e.target.value)}
+                    className="w-full px-2 py-1 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded text-xs text-zinc-900 dark:text-zinc-100"
+                  >
+                    <option value="CERTIFICADO_SEC">Certificado SEC</option>
+                    <option value="PROTOCOLO_BIOSEGURIDAD">Protocolo Bioseguridad</option>
+                    <option value="POLIZA_SEGURO">Póliza de Seguros</option>
+                    <option value="PERMISO_EDIFICACION">Permiso Edificación</option>
+                    <option value="MANUAL_GARANTIA">Manual / Garantía</option>
+                    <option value="PLANO_TECNICO">Plano Técnico</option>
+                    <option value="INFORME_TECNICO">Informe Técnico</option>
+                    <option value="OTRO">Otro</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-600 dark:text-zinc-400 mb-0.5">
+                    N° Folio / Registro
+                  </label>
+                  <input
+                    type="text"
+                    value={nuevoDocFolio}
+                    onChange={(e) => setNuevoDocFolio(e.target.value)}
+                    placeholder="Ej: FOL-9921"
+                    className="w-full px-2 py-1 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded text-xs font-mono text-zinc-900 dark:text-zinc-100"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-600 dark:text-zinc-400 mb-0.5">
+                    Entidad Emisora
+                  </label>
+                  <input
+                    type="text"
+                    value={nuevoDocEmisor}
+                    onChange={(e) => setNuevoDocEmisor(e.target.value)}
+                    placeholder="Ej: SEC / Mutual"
+                    className="w-full px-2 py-1 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded text-xs text-zinc-900 dark:text-zinc-100"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-600 dark:text-zinc-400 mb-0.5">
+                    Fecha Vencimiento
+                  </label>
+                  <input
+                    type="date"
+                    value={nuevoDocVencimiento}
+                    onChange={(e) => setNuevoDocVencimiento(e.target.value)}
+                    className="w-full px-2 py-1 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded text-xs text-zinc-900 dark:text-zinc-100"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-zinc-600 dark:text-zinc-400 mb-0.5">
+                  Archivo Adjunto (PDF o Imagen)
+                </label>
+                <div
+                  onClick={() => docFileInputRef.current?.click()}
+                  className="border border-dashed border-zinc-300 dark:border-zinc-700 hover:border-blue-500 rounded p-2 text-center cursor-pointer bg-white dark:bg-zinc-950"
+                >
+                  <input
+                    ref={docFileInputRef}
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) setNuevoDocFile(e.target.files[0]);
+                    }}
+                  />
+                  {nuevoDocFile ? (
+                    <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 truncate block">
+                      📎 {nuevoDocFile.name}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                      Haga clic para adjuntar archivo PDF / imagen
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-1.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowAddDoc(false)}
+                  className="px-2 py-1 text-[11px] text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={addingDocLoading}
+                  className="px-2.5 py-1 bg-blue-600 text-white rounded text-[11px] font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {addingDocLoading ? "Adjuntando..." : "Guardar Documento"}
+                </button>
+              </div>
+            </form>
+          ) : loadingDocumentos ? (
+            <div className="py-4 flex justify-center text-zinc-400">
+              <Loader2 className="w-4 h-4 animate-spin" />
+            </div>
+          ) : documentos.length === 0 ? (
+            <div className="py-4 text-center text-zinc-400 dark:text-zinc-500 text-xs">
+              No hay documentos asociados a este recinto.
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              {documentos.map((doc) => (
+                <div
+                  key={doc.id}
+                  className="p-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg flex items-center justify-between gap-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                      <p className="font-bold text-zinc-900 dark:text-zinc-100 truncate text-[11px]">
+                        {doc.nombre}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      {doc.estado_vencimiento === "VIGENTE" && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded border bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-200 dark:border-emerald-800 uppercase flex items-center gap-0.5">
+                          <CheckCircle2 className="w-2.5 h-2.5" /> Vigente
+                        </span>
+                      )}
+                      {(doc.estado_vencimiento === "POR_VENCER_30" || doc.estado_vencimiento === "POR_VENCER_60") && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded border bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950 dark:text-amber-200 dark:border-amber-800 uppercase flex items-center gap-0.5">
+                          <Clock className="w-2.5 h-2.5" /> Vence en {doc.dias_para_vencer}d
+                        </span>
+                      )}
+                      {doc.estado_vencimiento === "VENCIDO" && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded border bg-red-100 text-red-900 border-red-300 dark:bg-red-950 dark:text-red-200 dark:border-red-800 uppercase flex items-center gap-0.5">
+                          <AlertTriangle className="w-2.5 h-2.5" /> Vencido
+                        </span>
+                      )}
+                      {doc.numero_folio && (
+                        <span className="text-[9px] font-mono text-zinc-500 dark:text-zinc-400">
+                          {doc.numero_folio}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    {doc.archivo_path && (
+                      <>
+                        <button
+                          onClick={() => setPreviewDoc(doc)}
+                          className="p-1 text-zinc-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
+                          title="Previsualizar PDF"
+                        >
+                          <Eye className="w-3 h-3" />
+                        </button>
+                        <a
+                          href={`${getApiUrl()}/api/v1/documents/${doc.id}/file`}
+                          download={doc.archivo_nombre || "documento.pdf"}
+                          className="p-1 text-zinc-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
+                          title="Descargar archivo"
+                        >
+                          <Download className="w-3 h-3" />
+                        </a>
+                      </>
+                    )}
+                    <button
+                      onClick={() => handleRemoveDocumento(doc.id)}
+                      className="p-1 text-zinc-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                      title="Eliminar documento"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Visor Rápido de PDF */}
+      {previewDoc && (
+        <PdfPreviewModal
+          isOpen={!!previewDoc}
+          onClose={() => setPreviewDoc(null)}
+          title={previewDoc.nombre}
+          fileUrl={`${getApiUrl()}/api/v1/documents/${previewDoc.id}/file`}
+          fileName={previewDoc.archivo_nombre}
+          mimeType={previewDoc.archivo_mime_type}
+        />
       )}
     </div>
   );
