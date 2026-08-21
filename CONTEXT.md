@@ -1,100 +1,105 @@
-# 🗺️ MInfra - Contexto del Proyecto (v3.0.0)
+# 🗺️ MInfra — Contexto Maestro del Proyecto & Continuidad de Sesión
 
-Documento de contexto general para continuar el desarrollo del proyecto **MInfra (CAD & Facility Management)** en un nuevo equipo o entorno.
-
----
-
-## 📌 1. Visión General del Proyecto
-**MInfra** es una plataforma web para la gestión de infraestructura física y planos CAD/DXF. Permite cargar planos de edificación en formato DXF, procesarlos automáticamente en el backend, renderizarlos de forma vectorial (SVG) de ultra-alta fidelidad en el frontend, e interactuar con recintos (salas, oficinas, laboratorios) y capas arquitectónicas.
+> **Documento de Contexto y Continuidad:** Lee este archivo para retomar el desarrollo de **MInfra** sin pérdida de contexto ni configuración.
 
 ---
 
-## 🏗️ 2. Estructura de la Monorepo
+## 📌 1. Visión y Estado del Proyecto
+* **Proyecto:** **MInfra (CAD, Space Management & Facility Management Universitario)**
+* **Versión Actual:** `v4.2.0`
+* **Rama Principal:** `main` (Sincronizada con GitHub: `https://github.com/jamesisla/minfra-kiro.git`)
+* **Entorno de Despliegue:** Instancia **Oracle Cloud Infrastructure (OCI) e3micro** (Ubuntu Minimal, 1 vCPU, 1 GB RAM + 2GB Swap).
+
+---
+
+## 🏗️ 2. Estructura del Monorepo
 
 ```
-c:/CODEA/FM/
+minfra-kiro/
 ├── apps/
-│   ├── web/                     # Frontend Next.js (React, TailwindCSS, TypeScript)
-│   │   ├── components/
-│   │   │   └── infrastructure/
-│   │   │       └── dxf-viewer.tsx  # Visor SVG interactivo (Zoom, Pan, Auto-fit, Capas)
-│   │   └── package.json         # Version 3.0.0
-│   └── api/                     # Backend FastAPI (Python)
+│   ├── web/                     # Frontend Next.js 14 (App Router, Tailwind, Zustand)
+│   │   ├── app/                 # Páginas (Login con 1-click demo, Dashboard, Visor CAD)
+│   │   ├── components/          # dxf-viewer.tsx, item-info-popup.tsx (Tabs: Espacio, Personas, Bienes)
+│   │   └── next.config.js       # Proxy interno rewrites (/api/:path* -> http://127.0.0.1:8000)
+│   └── api/                     # Backend FastAPI (Python 3.12, AsyncPG, Alembic, ezdxf)
 │       ├── app/
-│       │   ├── main.py          # FastAPI app entrypoint (v3.0.0)
-│       │   └── services/
-│       │       └── dxf_processor.py # Procesador CAD (ezdxf, bounds IQR, raycasting)
-│       └── pyproject.toml       # Version 3.0.0
+│       │   ├── api/v1/routes/   # auth, infrastructure, organizations, people, spaces, assets
+│       │   ├── models/          # user, organization, person, infrastructure, asset
+│       │   ├── repositories/    # Repositorios base y especializados con soft delete
+│       │   ├── schemas/         # Modelos Pydantic v2
+│       │   └── services/        # dxf_processor, infrastructure, organization, person, space, asset
+│       └── alembic/versions/    # Migraciones 0001 a 0004
 ├── packages/
-│   └── shared-types/            # Tipos compartidos TypeScript (v3.0.0)
-├── CONTEXT.md                   # Este documento
-└── package.json                 # Monorepo root (v3.0.0)
+│   └── shared-types/            # Tipos compartidos TypeScript (User, Espacio, Persona, Bien, etc.)
+├── docs/
+│   ├── architecture/            # roadmap-fases-modulos.md (Plan estratégico completo)
+│   ├── ai-context/              # data-model.md (Diccionario ERD)
+│   └── setup/                   # production-deploy.md (Guía para OCI)
+├── scripts/
+│   └── deploy.sh                # Script de despliegue automático 1-comando en OCI
+└── CONTEXT.md                   # Este documento maestro
 ```
 
 ---
 
-## ⚙️ 3. Componentes Clave e Implementaciones Clave (v3.0.0)
+## 📦 3. Módulos Implementados
 
-### 🔹 Backend: `apps/api/app/services/dxf_processor.py`
-1. **Límites Inteligentes y Reducción del Área Blanca (`_calculate_smart_bounds`):**
-   - Usa el método IQR (Rango Intercuartílico) para descartar ruido distante u objetos huérfanos fuera del plano real.
-   - Aplica un **margen hiper-ajustado del 0.5%** sobre las dimensiones del piso para minimizar el área blanca y maximizar la visibilidad.
-2. **Inferencia Inteligente de Recintos (`_infer_room_type_from_text`):**
-   - Reconoce automáticamente códigos de salas tipo `A201` a `A229`, `B101`, etc., y palabras clave (`SALA`, `OFICINA`, `LABORATORIO`, `BAÑO`, `PASILLO`, `DEPOSITO`, `ESCALERA`, `ASCENSOR`).
-3. **Asociación Espacial al Polígono de Menor Área (*Innermost Polygon*):**
-   - Asigna los textos de recintos al **polígono contenedor más pequeño**, evitando que el contorno gigante del piso capture etiquetas de salas interiores.
-4. **Auto-Cerrado de Políneas por Proximidad:**
-   - Detecta polilíneas casi cerradas (extremos a menos de 2m o 2% del ancho) y las cierra automáticamente para calcular área en m².
-5. **Reconstrucción Espacial de Salas por Raycasting (`_find_room_box_from_walls`):**
-   - Si una sala (ej. `A202, A203, A210`) no posee un polígono cerrado en el DXF porque fue dibujada con líneas sueltas o aberturas de puertas, lanza rayos horizontales y verticales hacia los muros circundantes para reconstruir el recinto exacto.
-6. **Ordenamiento de Renderizado SVG:**
-   - Renderiza polígonos ordenados por **área descendente** (perímetros grandes al fondo con `pointer-events="stroke"`, recintos pequeños arriba), garantizando clics 100% precisos sobre las salas.
+### ✅ Módulo 0: Space Management & Motor CAD
+- **Jerarquía:** `Sede` $\rightarrow$ `Edificio` $\rightarrow$ `Piso` $\rightarrow$ `Espacio` (Negocio persistente) $\rightarrow$ `PlanoItem` (Geometría SVG).
+- **Procesamiento CAD (`dxf_processor.py`):** Ingesta DXF, límites IQR, raycasting para salas abiertas, cálculo de $\text{m}^2$ y metros lineales.
+- **Visor Interactivo (`dxf-viewer.tsx`):** Zoom, Pan, giro de planos (90°/180°/270°), modos visuales y control de capas.
+- **Desacoplamiento Geometría/Negocio:** La re-subida de planos DXF no elimina los datos asociados al `Espacio`.
 
-### 🔹 Frontend: `apps/web/components/infrastructure/dxf-viewer.tsx`
-1. **Centrado e Auto-Fit Inmediato:**
-   - Ajusta automáticamente el plano al 95% del visor apenas se carga o guarda un nuevo piso.
-   - Utiliza `ResizeObserver` para recalcular el centro cuando se redimensiona la ventana o los paneles laterales.
-2. **Interacción y Capas:**
-   - Soporta Pan (arrastre), Zoom (rueda y botones), selección interactiva de recintos y conmutación de visibilidad de capas.
-   - Aplica `vector-effect="non-scaling-stroke"` para mantener trazos ultrafinos constantes independientemente del nivel de zoom.
+### ✅ Módulo 1 (Fase 1): Personas & Unidades Organizacionales
+- **`UnidadOrganizacional`:** Jerarquía institucional (Facultades, Departamentos, Escuelas).
+- **`Persona`:** Directorio de docentes, administrativos, estudiantes y externos.
+- **`EspacioPersona`:** Asignación de roles a cada sala (`RESPONSABLE`, `OCUPANTE`, `BRIGADISTA`).
+- **Popup Interactivo:** Pestaña "Personas" para ver y asignar personal en vivo desde el plano.
+
+### ✅ Módulo 2 (Fase 2): Bienes & Activos Fijos Geolocalizados
+- **`Bien`:** Inventario de activos con `codigo_patrimonial` (QR/Barcode), categoría (*Mobiliario, Computación/TI, Climatización HVAC, Laboratorio, Audiovisual, Seguridad*), marca, modelo, serie y estado operativo.
+- **`BienMovimiento`:** Trazabilidad y auditoría de traslados de bienes entre recintos.
+- **Popup Interactivo:** Pestaña "Bienes" para ver y dar de alta equipamiento directamente en la sala.
+
+### ✅ Acceso Rápido & Conectividad OCI
+- **Login 1-Click Demo:** Botones directos `⚡ Admin Demo` (`admin@institucion.cl` / `Admin123!`) y `👤 Alumno Demo`.
+- **Doble Proxy:** `next.config.js` reenvía `/api/...` a FastAPI en `127.0.0.1:8000` para prevenir errores 502.
 
 ---
 
-## 🚀 4. Guía de Inicio Rápido en un Nuevo Equipo
+## 🗄️ 4. Base de Datos y Migraciones Alembic
 
-### 1️⃣ Clonar el Repositorio
-```bash
-git clone https://github.com/jamesisla/minfra-kiro.git
-cd minfra-kiro
-```
-
-### 2️⃣ Levantar el Backend (`apps/api`)
-```bash
-cd apps/api
-python -m venv venv
-
-# En Windows PowerShell:
-.\venv\Scripts\Activate.ps1
-
-# En Linux/macOS:
-source venv/bin/activate
-
-pip install -r requirements.txt  # O instala: ezdxf fastapi uvicorn pydantic
-uvicorn app.main:app --reload --port 8000
-```
-*API Swagger disponible en:* `http://localhost:8000/docs`
-
-### 3️⃣ Levantar el Frontend (`apps/web`)
-```bash
-cd apps/web
-npm install
-npm run dev
-```
-*Aplicación Web disponible en:* `http://localhost:3000`
+1. `0001_users_table.py`: Tabla `users` (autenticación JWT, bcrypt).
+2. `0002_infrastructure_tables.py`: Tablas `sedes`, `edificios`, `pisos`, `plano_items`.
+3. `0003_espacios_personas_unidades.py`: Tablas `unidades_organizacionales`, `personas`, `espacios`, `espacio_personas`.
+4. `0004_bienes_activos.py`: Tablas `bienes` y `bien_movimientos`.
 
 ---
 
-## 🏷️ 5. Control de Versiones y Tagging
-- **Versión Actual:** `v3.0.0`
-- **Rama principal:** `main`
-- **Git Tag:** `v3.0.0`
+## 🖥️ 5. Despliegue en Servidor OCI
+
+En el servidor remoto en OCI:
+- **Backend:** Servicio Systemd `sdd-api.service` (`uvicorn app.main:app --port 8000`).
+- **Frontend:** PM2 `minfra-web` (`npm start -- -p 3000`).
+- **Reverse Proxy:** Nginx en puerto 80/443.
+- **Actualizar todo en 1 comando:**
+  ```bash
+  cd /var/www/sdd-project
+  bash scripts/deploy.sh
+  ```
+
+---
+
+## 🚀 6. Próximo Paso en la Hoja de Ruta: FASE 3 (Documentos & Compliance)
+
+Cuando se retome el proyecto, el siguiente desarrollo planificado es:
+1. **Módulo de Documentos:**
+   - Tabla `documentos` polimórfica (asociable a Sede, Edificio, Piso, Recinto o Bien).
+   - Tipos de archivo: Títulos de dominio, permisos de edificación, certificados SEC de ascensores/gases, protocolos de bioseguridad, pólizas de seguro.
+   - Sistema de semáforo de vigencias (Vigente, Por Vencer a 30/60 días, Vencido).
+   - Visor rápido de PDFs integrado en el popup del recinto y panel general.
+
+---
+
+## 💡 Prompt para Retomar Sesión
+> *"Hola, lee el archivo `CONTEXT.md` para retomar el proyecto MInfra v4.2.0. Estamos listos para comenzar con la Fase 3 (Módulo de Documentos y Alertas de Vencimiento)."*
