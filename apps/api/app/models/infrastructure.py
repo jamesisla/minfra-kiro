@@ -1,13 +1,20 @@
 """
 Modelos de infraestructura universitaria.
-Sede → Edificio → Piso → PlanoItem (entidades parseadas del DXF).
+Sede → Edificio → Piso → Espacio (Entidad persistente de negocio)
+                      → PlanoItem (Geometría parseada del DXF / SVG)
 """
 import uuid
-from sqlalchemy import Float, ForeignKey, Integer, String, Text
+from datetime import datetime
+from typing import TYPE_CHECKING
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.models.base import TimestampMixin
+
+if TYPE_CHECKING:
+    from app.models.organization import UnidadOrganizacional
+    from app.models.person import Persona
 
 
 class Sede(Base, TimestampMixin):
@@ -66,16 +73,97 @@ class Piso(Base, TimestampMixin):
     items: Mapped[list["PlanoItem"]] = relationship(
         "PlanoItem", back_populates="piso", lazy="selectin", cascade="all, delete-orphan"
     )
+    espacios: Mapped[list["Espacio"]] = relationship(
+        "Espacio", back_populates="piso", lazy="selectin", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<Piso id={self.id} numero={self.numero}>"
 
 
+class Espacio(Base, TimestampMixin):
+    """
+    Entidad persistente de negocio para recintos (Salas, Oficinas, Laboratorios, etc.).
+    Desacoplada del ciclo de vida del archivo DXF para conservar personas, bienes y documentos.
+    """
+    __tablename__ = "espacios"
+
+    piso_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("pisos.id", ondelete="CASCADE"), nullable=False
+    )
+    codigo: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    nombre: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    tipo: Mapped[str] = mapped_column(String(100), default="SALA")
+    estado: Mapped[str] = mapped_column(String(50), default="Disponible")  # Disponible, Ocupado, Mantenimiento, Reservado
+    capacidad: Mapped[int] = mapped_column(Integer, default=0)
+    area_m2: Mapped[float | None] = mapped_column(Float, nullable=True)
+    perimetro_m: Mapped[float | None] = mapped_column(Float, nullable=True)
+    unidad_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("unidades_organizacionales.id", ondelete="SET NULL"), nullable=True
+    )
+    metadata_extra: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    piso: Mapped["Piso"] = relationship("Piso", back_populates="espacios")
+    unidad: Mapped["UnidadOrganizacional | None"] = relationship(
+        "UnidadOrganizacional", back_populates="espacios", lazy="selectin"
+    )
+    plano_items: Mapped[list["PlanoItem"]] = relationship(
+        "PlanoItem", back_populates="espacio", lazy="selectin"
+    )
+    asignaciones_personas: Mapped[list["EspacioPersona"]] = relationship(
+        "EspacioPersona",
+        back_populates="espacio",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+    )
+
+    def __repr__(self) -> str:
+        return f"<Espacio id={self.id} codigo={self.codigo!r} nombre={self.nombre!r}>"
+
+
+class EspacioPersona(Base, TimestampMixin):
+    """
+    Asociación entre un Espacio y una Persona (Ocupante, Responsable, Custodio, Brigadista).
+    """
+    __tablename__ = "espacio_personas"
+
+    espacio_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("espacios.id", ondelete="CASCADE"), nullable=False
+    )
+    persona_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("personas.id", ondelete="CASCADE"), nullable=False
+    )
+    rol: Mapped[str] = mapped_column(
+        String(50), default="OCUPANTE"
+    )  # RESPONSABLE, OCUPANTE, BRIGADISTA, CONTACTO
+    puesto_identificador: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    fecha_inicio: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    fecha_fin: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    notas: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    espacio: Mapped["Espacio"] = relationship(
+        "Espacio", back_populates="asignaciones_personas"
+    )
+    persona: Mapped["Persona"] = relationship(
+        "Persona", back_populates="asignaciones_espacio", lazy="selectin"
+    )
+
+    def __repr__(self) -> str:
+        return f"<EspacioPersona espacio_id={self.espacio_id} persona_id={self.persona_id} rol={self.rol!r}>"
+
+
 class PlanoItem(Base, TimestampMixin):
+    """
+    Representación geométrica vectorial de una entidad extraída de un archivo DXF / SVG.
+    """
     __tablename__ = "plano_items"
 
     piso_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("pisos.id", ondelete="CASCADE"), nullable=False
+    )
+    # Vínculo opcional a la entidad de negocio persistente
+    espacio_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("espacios.id", ondelete="SET NULL"), nullable=True
     )
     # Tipo de entidad DXF (ROOM, OFFICE, TEXT, etc.)
     tipo: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -92,6 +180,9 @@ class PlanoItem(Base, TimestampMixin):
     metadata_extra: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     piso: Mapped["Piso"] = relationship("Piso", back_populates="items")
+    espacio: Mapped["Espacio | None"] = relationship(
+        "Espacio", back_populates="plano_items", lazy="selectin"
+    )
 
     def __repr__(self) -> str:
         return f"<PlanoItem id={self.id} tipo={self.tipo!r} nombre={self.nombre!r}>"

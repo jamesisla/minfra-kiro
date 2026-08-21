@@ -10,7 +10,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.infrastructure import Edificio, Piso, PlanoItem, Sede
+from app.models.infrastructure import Edificio, Espacio, Piso, PlanoItem, Sede
 from app.repositories.infrastructure import (
     EdificioRepository,
     PisoRepository,
@@ -249,7 +249,16 @@ class InfrastructureService:
             "max_y": result.max_y,
         })
 
-        # Crear los PlanoItems (con santización de longitudes de campos)
+        # Obtener los espacios existentes del piso para re-vincular de forma no destructiva
+        stmt_espacios = select(Espacio).where(
+            Espacio.piso_id == piso_id, Espacio.deleted_at.is_(None)
+        )
+        existing_espacios = list((await self.db.scalars(stmt_espacios)).all())
+        espacios_by_code: dict[str, Espacio] = {
+            e.codigo.upper(): e for e in existing_espacios if e.codigo
+        }
+
+        # Crear los PlanoItems (con sanitización de longitudes de campos y enlace a Espacio)
         items_created = 0
         for entity in result.entities:
             try:
@@ -260,8 +269,61 @@ class InfrastructureService:
                 capa_clean = entity.capa[:240] if entity.capa is not None else None
                 tipo_clean = (entity.tipo or "DEFAULT")[:90]
 
+                # Sincronización o asignación a entidad Espacio
+                espacio_id = None
+                code_candidate = (meta.get("codigo") or nombre_clean or "").strip()
+                if code_candidate:
+                    code_key = code_candidate.upper()
+                    if code_key in espacios_by_code:
+                        espacio_obj = espacios_by_code[code_key]
+                        # Actualizar m² si el procesador CAD calculó área
+                        if meta.get("area_m2") and not espacio_obj.area_m2:
+                            try:
+                                espacio_obj.area_m2 = float(meta["area_m2"])
+                            except (ValueError, TypeError):
+                                pass
+                        if meta.get("perimetro_m") and not espacio_obj.perimetro_m:
+                            try:
+                                espacio_obj.perimetro_m = float(meta["perimetro_m"])
+                            except (ValueError, TypeError):
+                                pass
+                        espacio_id = espacio_obj.id
+                    elif tipo_clean in (
+                        "SALA", "LABORATORIO", "OFICINA", "BAÑO", "PASILLO",
+                        "ESCALERA", "ASCENSOR", "SALA_SERVIDORES", "DEPOSITO",
+                        "COMEDOR", "CAFETERIA", "BIBLIOTECA", "AUDITORIO", "SALA_REUNION", "AREA"
+                    ):
+                        area_val = None
+                        perim_val = None
+                        if meta.get("area_m2"):
+                            try:
+                                area_val = float(meta["area_m2"])
+                            except (ValueError, TypeError):
+                                pass
+                        if meta.get("perimetro_m"):
+                            try:
+                                perim_val = float(meta["perimetro_m"])
+                            except (ValueError, TypeError):
+                                pass
+
+                        new_espacio = Espacio(
+                            piso_id=piso_id,
+                            codigo=code_candidate[:90],
+                            nombre=nombre_clean,
+                            tipo=tipo_clean,
+                            estado="Disponible",
+                            capacidad=0,
+                            area_m2=area_val,
+                            perimetro_m=perim_val,
+                        )
+                        self.db.add(new_espacio)
+                        await self.db.flush()
+                        espacios_by_code[code_key] = new_espacio
+                        espacio_id = new_espacio.id
+
                 item = PlanoItem(
                     piso_id=piso_id,
+                    espacio_id=espacio_id,
                     tipo=tipo_clean,
                     nombre=nombre_clean,
                     capa=capa_clean,

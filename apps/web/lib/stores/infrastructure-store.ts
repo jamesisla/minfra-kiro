@@ -41,6 +41,7 @@ export interface PlanoItem {
   ancho: number | null;
   alto: number | null;
   metadata_extra: string | null;
+  espacio_id?: string | null;
 }
 
 export interface PisoDetail {

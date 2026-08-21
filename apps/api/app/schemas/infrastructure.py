@@ -18,6 +18,7 @@ class PlanoItemBase(BaseModel):
     ancho: float | None = None
     alto: float | None = None
     metadata_extra: str | None = None
+    espacio_id: uuid.UUID | None = None
 
 
 class PlanoItemUpdate(BaseModel):
@@ -25,12 +26,14 @@ class PlanoItemUpdate(BaseModel):
     nombre: str | None = None
     capa: str | None = None
     metadata_extra: str | None = None
+    espacio_id: uuid.UUID | None = None
 
 
 class PlanoItemRead(PlanoItemBase):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
     piso_id: uuid.UUID
+    espacio_id: uuid.UUID | None = None
 
 
 # ── Piso ──────────────────────────────────────────────────────────────────
