@@ -15,6 +15,7 @@ from app.models.base import TimestampMixin
 if TYPE_CHECKING:
     from app.models.organization import UnidadOrganizacional
     from app.models.person import Persona
+    from app.models.asset import Bien
 
 
 class Sede(Base, TimestampMixin):
@@ -109,6 +110,9 @@ class Espacio(Base, TimestampMixin):
     )
     plano_items: Mapped[list["PlanoItem"]] = relationship(
         "PlanoItem", back_populates="espacio", lazy="selectin"
+    )
+    bienes: Mapped[list["Bien"]] = relationship(
+        "Bien", back_populates="espacio", lazy="selectin"
     )
     asignaciones_personas: Mapped[list["EspacioPersona"]] = relationship(
         "EspacioPersona",

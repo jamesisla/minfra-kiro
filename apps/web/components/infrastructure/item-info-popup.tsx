@@ -17,6 +17,14 @@ import {
   Shield,
   Briefcase,
   Building,
+  Package,
+  PlusCircle,
+  QrCode,
+  Laptop,
+  Wind,
+  Tv,
+  Armchair,
+  FlaskConical,
 } from "lucide-react";
 import { useInfrastructureStore } from "@/lib/stores/infrastructure-store";
 import { apiClient } from "@/lib/api/client";
@@ -84,6 +92,18 @@ interface AsignacionPersona {
   } | null;
 }
 
+interface BienItem {
+  id: string;
+  codigo_patrimonial: string;
+  nombre: string;
+  categoria: string;
+  marca?: string | null;
+  modelo?: string | null;
+  numero_serie?: string | null;
+  estado_operativo: string;
+  custodio_nombre?: string | null;
+}
+
 export function ItemInfoPopup() {
   const {
     selectedItem,
@@ -94,7 +114,7 @@ export function ItemInfoPopup() {
     authToken,
   } = useInfrastructureStore();
 
-  const [activeTab, setActiveTab] = useState<"general" | "personas">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "personas" | "bienes">("general");
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -117,6 +137,19 @@ export function ItemInfoPopup() {
   const [nuevaPersonaRol, setNuevaPersonaRol] = useState("OCUPANTE");
   const [addingPersonaLoading, setAddingPersonaLoading] = useState(false);
 
+  // Bienes State (Fase 2)
+  const [bienes, setBienes] = useState<BienItem[]>([]);
+  const [loadingBienes, setLoadingBienes] = useState(false);
+  const [showAddBien, setShowAddBien] = useState(false);
+  const [nuevoBienCodigo, setNuevoBienCodigo] = useState("");
+  const [nuevoBienNombre, setNuevoBienNombre] = useState("");
+  const [nuevoBienCategoria, setNuevoBienCategoria] = useState("MOBILIARIO");
+  const [nuevoBienMarca, setNuevoBienMarca] = useState("");
+  const [nuevoBienModelo, setNuevoBienModelo] = useState("");
+  const [nuevoBienSerie, setNuevoBienSerie] = useState("");
+  const [nuevoBienEstado, setNuevoBienEstado] = useState("OPERATIVO");
+  const [addingBienLoading, setAddingBienLoading] = useState(false);
+
   const fetchPeopleForSpace = useCallback(async (espacioId: string) => {
     if (!authToken) return;
     setLoadingPersonas(true);
@@ -133,6 +166,22 @@ export function ItemInfoPopup() {
     }
   }, [authToken]);
 
+  const fetchBienesForSpace = useCallback(async (espacioId: string) => {
+    if (!authToken) return;
+    setLoadingBienes(true);
+    try {
+      const data = await apiClient.get<BienItem[]>(
+        `/api/v1/assets/espacio/${espacioId}`,
+        { token: authToken }
+      );
+      setBienes(data || []);
+    } catch {
+      setBienes([]);
+    } finally {
+      setLoadingBienes(false);
+    }
+  }, [authToken]);
+
   useEffect(() => {
     if (selectedItem) {
       setNombre(selectedItem.nombre ?? "");
@@ -140,6 +189,7 @@ export function ItemInfoPopup() {
       setCapa(selectedItem.capa ?? "");
       setActiveTab("general");
       setShowAddPersona(false);
+      setShowAddBien(false);
 
       let meta: Record<string, any> = {};
       if (selectedItem.metadata_extra) {
@@ -155,11 +205,13 @@ export function ItemInfoPopup() {
 
       if (selectedItem.espacio_id) {
         fetchPeopleForSpace(selectedItem.espacio_id);
+        fetchBienesForSpace(selectedItem.espacio_id);
       } else {
         setPersonas([]);
+        setBienes([]);
       }
     }
-  }, [selectedItem, fetchPeopleForSpace]);
+  }, [selectedItem, fetchPeopleForSpace, fetchBienesForSpace]);
 
   if (!selectedItem) return null;
 
@@ -168,8 +220,8 @@ export function ItemInfoPopup() {
 
   const popupStyle: React.CSSProperties = {};
   if (selectedItemPosition) {
-    const W = isEditing ? 340 : 320;
-    const H = isEditing ? 420 : 380;
+    const W = isEditing ? 350 : 330;
+    const H = isEditing ? 430 : 400;
     const vw = window.innerWidth,
       vh = window.innerHeight;
     let left = selectedItemPosition.x + 16;
@@ -233,7 +285,6 @@ export function ItemInfoPopup() {
     if (!authToken || !nuevaPersonaNombre.trim() || !selectedItem.espacio_id) return;
     setAddingPersonaLoading(true);
     try {
-      // 1. Crear la persona
       const personaRes = await apiClient.post<{ id: string }>(
         "/api/v1/people",
         {
@@ -245,7 +296,6 @@ export function ItemInfoPopup() {
         { token: authToken }
       );
 
-      // 2. Asignarla al espacio
       await apiClient.post(
         `/api/v1/spaces/${selectedItem.espacio_id}/people`,
         {
@@ -256,7 +306,6 @@ export function ItemInfoPopup() {
         { token: authToken }
       );
 
-      // Limpiar formulario y refrescar
       setNuevaPersonaNombre("");
       setNuevaPersonaEmail("");
       setNuevaPersonaCargo("");
@@ -281,11 +330,57 @@ export function ItemInfoPopup() {
     }
   };
 
+  const handleAddBien = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!authToken || !nuevoBienCodigo.trim() || !nuevoBienNombre.trim() || !selectedItem.espacio_id) return;
+    setAddingBienLoading(true);
+    try {
+      await apiClient.post(
+        "/api/v1/assets",
+        {
+          codigo_patrimonial: nuevoBienCodigo.trim().toUpperCase(),
+          nombre: nuevoBienNombre.trim(),
+          categoria: nuevoBienCategoria,
+          marca: nuevoBienMarca.trim() || null,
+          modelo: nuevoBienModelo.trim() || null,
+          numero_serie: nuevoBienSerie.trim() || null,
+          estado_operativo: nuevoBienEstado,
+          espacio_id: selectedItem.espacio_id,
+        },
+        { token: authToken }
+      );
+
+      setNuevoBienCodigo("");
+      setNuevoBienNombre("");
+      setNuevoBienMarca("");
+      setNuevoBienModelo("");
+      setNuevoBienSerie("");
+      setShowAddBien(false);
+      await fetchBienesForSpace(selectedItem.espacio_id);
+    } catch (err) {
+      console.error("Error registrando bien:", err);
+    } finally {
+      setAddingBienLoading(false);
+    }
+  };
+
+  const handleRemoveBien = async (bienId: string) => {
+    if (!authToken || !selectedItem.espacio_id) return;
+    try {
+      await apiClient.delete(`/api/v1/assets/${bienId}`, {
+        token: authToken,
+      });
+      await fetchBienesForSpace(selectedItem.espacio_id);
+    } catch (err) {
+      console.error("Error al eliminar bien:", err);
+    }
+  };
+
   return (
     <div
       className={cn(
         "fixed z-50 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl ring-1 ring-black/5 dark:ring-white/10 overflow-hidden opacity-100",
-        isEditing ? "w-[340px]" : "w-[320px]",
+        isEditing ? "w-[350px]" : "w-[330px]",
         "animate-in fade-in-0 slide-in-from-bottom-2 duration-150"
       )}
       style={popupStyle}
@@ -348,13 +443,13 @@ export function ItemInfoPopup() {
           </div>
         </div>
 
-        {/* Pestañas de navegación interna */}
+        {/* Pestañas de navegación interna (Espacio | Personas | Bienes) */}
         {!isEditing && (
           <div className="flex items-center gap-1 mt-2.5 pt-2 border-t border-zinc-200 dark:border-zinc-800/80">
             <button
               onClick={() => setActiveTab("general")}
               className={cn(
-                "flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold transition-colors",
+                "flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-semibold transition-colors",
                 activeTab === "general"
                   ? "bg-white dark:bg-zinc-800 text-blue-600 dark:text-blue-400 shadow-sm border border-zinc-200 dark:border-zinc-700"
                   : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
@@ -366,7 +461,7 @@ export function ItemInfoPopup() {
             <button
               onClick={() => setActiveTab("personas")}
               className={cn(
-                "flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold transition-colors",
+                "flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-semibold transition-colors",
                 activeTab === "personas"
                   ? "bg-white dark:bg-zinc-800 text-blue-600 dark:text-blue-400 shadow-sm border border-zinc-200 dark:border-zinc-700"
                   : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
@@ -374,6 +469,18 @@ export function ItemInfoPopup() {
             >
               <Users className="w-3 h-3" />
               <span>Personas ({personas.length})</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("bienes")}
+              className={cn(
+                "flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-semibold transition-colors",
+                activeTab === "bienes"
+                  ? "bg-white dark:bg-zinc-800 text-blue-600 dark:text-blue-400 shadow-sm border border-zinc-200 dark:border-zinc-700"
+                  : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
+              )}
+            >
+              <Package className="w-3 h-3" />
+              <span>Bienes ({bienes.length})</span>
             </button>
           </div>
         )}
@@ -621,8 +728,8 @@ export function ItemInfoPopup() {
             </button>
           </div>
         </div>
-      ) : (
-        /* Pestaña: Personas Asignadas (Fase 1) */
+      ) : activeTab === "personas" ? (
+        /* Pestaña: Personas Asignadas */
         <div className="p-4 space-y-3 text-xs bg-white dark:bg-zinc-950">
           <div className="flex items-center justify-between">
             <h4 className="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5 text-xs">
@@ -767,6 +874,195 @@ export function ItemInfoPopup() {
                     onClick={() => handleRemovePersona(asig.id)}
                     className="p-1 text-zinc-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
                     title="Desvincular del espacio"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Pestaña: Bienes / Activos del Recinto (Fase 2) */
+        <div className="p-4 space-y-3 text-xs bg-white dark:bg-zinc-950">
+          <div className="flex items-center justify-between">
+            <h4 className="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5 text-xs">
+              <Package className="w-3.5 h-3.5 text-blue-500" />
+              Inventario de Bienes
+            </h4>
+            {!showAddBien && selectedItem.espacio_id && (
+              <button
+                onClick={() => setShowAddBien(true)}
+                className="flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                <PlusCircle className="w-3 h-3" />
+                <span>Registrar bien</span>
+              </button>
+            )}
+          </div>
+
+          {showAddBien ? (
+            <form
+              onSubmit={handleAddBien}
+              className="p-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg space-y-2"
+            >
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-600 dark:text-zinc-400 mb-0.5">
+                    Cód. Patrimonial / QR
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={nuevoBienCodigo}
+                    onChange={(e) => setNuevoBienCodigo(e.target.value)}
+                    placeholder="Ej: ACT-0094"
+                    className="w-full px-2 py-1 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded text-xs font-mono font-bold text-zinc-900 dark:text-zinc-100"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-600 dark:text-zinc-400 mb-0.5">
+                    Categoría
+                  </label>
+                  <select
+                    value={nuevoBienCategoria}
+                    onChange={(e) => setNuevoBienCategoria(e.target.value)}
+                    className="w-full px-2 py-1 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded text-xs text-zinc-900 dark:text-zinc-100"
+                  >
+                    <option value="MOBILIARIO">Mobiliario</option>
+                    <option value="TI_COMPUTO">Computación / TI</option>
+                    <option value="CLIMATIZACION">Climatización (HVAC)</option>
+                    <option value="LABORATORIO">Laboratorio</option>
+                    <option value="AUDIOVISUAL">Audiovisual</option>
+                    <option value="SEGURIDAD">Seguridad</option>
+                    <option value="OTRO">Otro</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-zinc-600 dark:text-zinc-400 mb-0.5">
+                  Nombre del Bien
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={nuevoBienNombre}
+                  onChange={(e) => setNuevoBienNombre(e.target.value)}
+                  placeholder="Ej: Proyector Láser 4K"
+                  className="w-full px-2 py-1 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded text-xs text-zinc-900 dark:text-zinc-100"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-600 dark:text-zinc-400 mb-0.5">
+                    Marca / Modelo
+                  </label>
+                  <input
+                    type="text"
+                    value={nuevoBienMarca}
+                    onChange={(e) => setNuevoBienMarca(e.target.value)}
+                    placeholder="Ej: Epson EB-L200"
+                    className="w-full px-2 py-1 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded text-xs text-zinc-900 dark:text-zinc-100"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-zinc-600 dark:text-zinc-400 mb-0.5">
+                    Estado Operativo
+                  </label>
+                  <select
+                    value={nuevoBienEstado}
+                    onChange={(e) => setNuevoBienEstado(e.target.value)}
+                    className="w-full px-2 py-1 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded text-xs text-zinc-900 dark:text-zinc-100"
+                  >
+                    <option value="OPERATIVO">Operativo</option>
+                    <option value="EN_MANTENCION">En Mantención</option>
+                    <option value="EN_REPARACION">En Reparación</option>
+                    <option value="DE_BAJA">De Baja</option>
+                    <option value="EN_BODEGA">En Bodega</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-zinc-600 dark:text-zinc-400 mb-0.5">
+                  Número de Serie
+                </label>
+                <input
+                  type="text"
+                  value={nuevoBienSerie}
+                  onChange={(e) => setNuevoBienSerie(e.target.value)}
+                  placeholder="Ej: SN-99824-X"
+                  className="w-full px-2 py-1 bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded text-xs font-mono text-zinc-900 dark:text-zinc-100"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-1.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowAddBien(false)}
+                  className="px-2 py-1 text-[11px] text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={addingBienLoading}
+                  className="px-2.5 py-1 bg-blue-600 text-white rounded text-[11px] font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {addingBienLoading ? "Registrando..." : "Guardar Bien"}
+                </button>
+              </div>
+            </form>
+          ) : loadingBienes ? (
+            <div className="py-4 flex justify-center text-zinc-400">
+              <Loader2 className="w-4 h-4 animate-spin" />
+            </div>
+          ) : bienes.length === 0 ? (
+            <div className="py-4 text-center text-zinc-400 dark:text-zinc-500 text-xs">
+              No hay bienes registrados en este recinto.
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              {bienes.map((b) => (
+                <div
+                  key={b.id}
+                  className="p-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg flex items-center justify-between gap-2"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/80 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-800">
+                        {b.codigo_patrimonial}
+                      </span>
+                      <p className="font-bold text-zinc-900 dark:text-zinc-100 truncate">
+                        {b.nombre}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span
+                        className={cn(
+                          "text-[9px] font-bold px-1.5 py-0.2 rounded border uppercase",
+                          b.estado_operativo === "OPERATIVO"
+                            ? "bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-200 dark:border-emerald-800"
+                            : b.estado_operativo === "EN_MANTENCION"
+                            ? "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950 dark:text-amber-200 dark:border-amber-800"
+                            : "bg-red-100 text-red-900 border-red-300 dark:bg-red-950 dark:text-red-200 dark:border-red-800"
+                        )}
+                      >
+                        {b.estado_operativo}
+                      </span>
+                      {b.marca && (
+                        <span className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                          {b.marca} {b.modelo ?? ""}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleRemoveBien(b.id)}
+                    className="p-1 text-zinc-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                    title="Eliminar bien"
                   >
                     <Trash2 className="w-3 h-3" />
                   </button>

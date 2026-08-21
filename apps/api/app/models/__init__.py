@@ -10,3 +10,4 @@ from app.models.infrastructure import (  # noqa: F401
     EspacioPersona,
     PlanoItem,
 )
+from app.models.asset import Bien, BienMovimiento  # noqa: F401

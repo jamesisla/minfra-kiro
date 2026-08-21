@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from app.models.organization import UnidadOrganizacional
     from app.models.user import User
     from app.models.infrastructure import EspacioPersona
+    from app.models.asset import Bien
 
 
 class Persona(Base, TimestampMixin):
@@ -44,6 +45,11 @@ class Persona(Base, TimestampMixin):
         back_populates="persona",
         lazy="selectin",
         cascade="all, delete-orphan",
+    )
+    bienes_custodiados: Mapped[list["Bien"]] = relationship(
+        "Bien",
+        back_populates="custodio",
+        lazy="selectin",
     )
 
     def __repr__(self) -> str:
